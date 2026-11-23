@@ -44,34 +44,45 @@ let works=mergeCatalog();
 let positions=[];
 let yaw=0, pitch=0, locked=false, active=false;
 let keys={};
-let camX=0,camZ=36, bob=0, mobileF=0,mobileR=0;
+let camX=0,camZ=8, bob=0, mobileF=0,mobileR=0;
 let interactionArt=null;
 let toastTimer=0;
 const activeCards=new Map();
 const ray=new THREE.Raycaster();
 const textureLoader=new THREE.TextureLoader();textureLoader.setCrossOrigin('anonymous');
 const placeholderTexture=createPlaceholder();
-const reusableGeo={panel:new THREE.PlaneGeometry(3.4,4.25),frame:new THREE.BoxGeometry(3.85,4.72,.22),post:new THREE.CylinderGeometry(.09,.13,2.3,7),base:new THREE.CylinderGeometry(.95,1.1,.24,10)};
+const reusableGeo={panel:new THREE.PlaneGeometry(3.4,4.25),frame:new THREE.BoxGeometry(3.85,4.72,.22),post:new THREE.CylinderGeometry(.09,.13,2.3,7),base:new THREE.CylinderGeometry(.95,1.1,.24,10),indicator:new THREE.SphereGeometry(.10,8,6)};
+const indicatorMaterial=new THREE.MeshBasicMaterial({color:0xd9bb88});
 const matFrame=new THREE.MeshStandardMaterial({color:0x998363,metalness:.48,roughness:.42});
 const matPost=new THREE.MeshStandardMaterial({color:0x3e4941,metalness:.3,roughness:.6});
 const matBase=new THREE.MeshStandardMaterial({color:0x41554c,roughness:.85});
 const textureCache=new Map(); // entries released as visitor moves; never fetch all ~1000 at once
 
 function rng(seed=312031){return ()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296}}const rand=rng();
-const terrain=(x,z)=> .48*Math.sin(x*.026)*Math.cos(z*.020)+.26*Math.sin(z*.049+x*.018);
+// Broad, walkable undulations; every object and the visitor use this same height.
+const terrain=(x,z)=> 2.2*Math.sin(x*.008)*Math.cos(z*.009)+.65*Math.sin(x*.026)*Math.cos(z*.020)+.26*Math.sin(z*.049+x*.018);
 function biomeAt(x,z){let best=biomes[0],d=Infinity;for(const b of biomes){const v=(x-b.x)**2+(z-b.z)**2;if(v<d){d=v;best=b}}return best;}
+let skyGroup;
 function addSky(){
+  skyGroup=new THREE.Group();scene.add(skyGroup);
   const geo=new THREE.SphereGeometry(650,40,24);
   const mat=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,uniforms:{t:{value:0}},vertexShader:`varying vec3 vPos;void main(){vPos=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,fragmentShader:`varying vec3 vPos; void main(){float h=normalize(vPos).y;vec3 top=vec3(.023,.063,.110);vec3 horizon=vec3(.22,.34,.32);vec3 glow=vec3(.49,.36,.27);vec3 col=mix(horizon,top,smoothstep(-.20,.68,h));col=mix(glow,col,smoothstep(-.22,.19,h));gl_FragColor=vec4(col,1.);}`});
-  scene.add(new THREE.Mesh(geo,mat));
+  skyGroup.add(new THREE.Mesh(geo,mat));
   const starPositions=[];for(let i=0;i<420;i++){const a=rand()*Math.PI*2,phi=.12+rand()*Math.PI*.48,rr=505;starPositions.push(Math.cos(a)*Math.cos(phi)*rr,Math.sin(phi)*rr,Math.sin(a)*Math.cos(phi)*rr)}
-  const starsG=new THREE.BufferGeometry();starsG.setAttribute('position',new THREE.Float32BufferAttribute(starPositions,3));const stars=new THREE.Points(starsG,new THREE.PointsMaterial({color:0xdce7c6,size:1.9,sizeAttenuation:false,transparent:true,opacity:.62,depthWrite:false}));scene.add(stars);
-  const moon=new THREE.Mesh(new THREE.SphereGeometry(18,32,20),new THREE.MeshBasicMaterial({color:0xf2e7c3}));moon.position.set(-230,180,-400);scene.add(moon);
+  const starsG=new THREE.BufferGeometry();starsG.setAttribute('position',new THREE.Float32BufferAttribute(starPositions,3));const stars=new THREE.Points(starsG,new THREE.PointsMaterial({color:0xdce7c6,size:1.9,sizeAttenuation:false,transparent:true,opacity:.62,depthWrite:false}));skyGroup.add(stars);
+  const moon=new THREE.Mesh(new THREE.SphereGeometry(18,32,20),new THREE.MeshBasicMaterial({color:0xf2e7c3}));moon.position.set(-230,180,-400);skyGroup.add(moon);
 }
 function makeGround(){
   const seg=150,size=820;const geo=new THREE.PlaneGeometry(size,size,seg,seg);geo.rotateX(-Math.PI/2);
   const pos=geo.attributes.position, colors=[];const c=new THREE.Color();
-  for(let i=0;i<pos.count;i++){const x=pos.getX(i),z=pos.getZ(i);pos.setY(i,terrain(x,z));const b=biomeAt(x,z);c.set(palette[b.id]);const d=Math.sin(x*.13)*Math.sin(z*.19)*.043;c.offsetHSL(0,0,d);colors.push(c.r,c.g,c.b)}
+  const biomeColors=biomes.map(b=>new THREE.Color(palette[b.id]));
+  for(let i=0;i<pos.count;i++){
+    const x=pos.getX(i),z=pos.getZ(i);pos.setY(i,terrain(x,z));
+    // Blend the three soils instead of drawing hard biome borders.
+    c.setRGB(0,0,0);let total=0;
+    biomes.forEach((b,j)=>{const weight=1/Math.pow(4000+(x-b.x)**2+(z-b.z)**2,2);c.r+=biomeColors[j].r*weight;c.g+=biomeColors[j].g*weight;c.b+=biomeColors[j].b*weight;total+=weight});
+    c.multiplyScalar(1/total);const d=Math.sin(x*.13)*Math.sin(z*.19)*.043;c.offsetHSL(0,0,d);colors.push(c.r,c.g,c.b)
+  }
   pos.needsUpdate=true;geo.computeVertexNormals();geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
   scene.add(new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,metalness:0})));
 }
@@ -82,14 +93,22 @@ function trees(){
   const treePositions=[];for(let k=0;k<3;k++){const b=biomes[k];const n=k===0?360: k===1?220:300;for(let i=0;i<n;i++){
     const a=rand()*6.283, r=27+Math.sqrt(rand())*165;
     const x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r;
+    // Reserve each central gallery and arrival point for a clear view.
+    if(biomes.some(center=>(x-center.x)**2+(z-center.z)**2<70**2))continue;
     if(Math.abs(x)<7&&z<40&&z>-70)continue;
     if(Math.abs(x-(b.x+20))<5&&Math.abs(z-(b.z+20))<5)continue;
-    treePositions.push({x,y:terrain(x,z),z,sx: .7+rand()*.72,sy:5+rand()*5,sz:.7+rand()*.72,rot:rand()*6.28});
+    treePositions.push({x,y:terrain(x,z),z,biome:k,sx: .7+rand()*.72,sy:5+rand()*5,sz:.7+rand()*.72,rot:rand()*6.28});
   }}
   const tmat=new THREE.MeshStandardMaterial({color:0x4b4437,roughness:1});
   placeInstanced(trunks,tmat,treePositions.length,i=>({...treePositions[i],sx:treePositions[i].sx,sy:treePositions[i].sy,sz:treePositions[i].sz}));
-  const cmat=new THREE.MeshStandardMaterial({color:0x245a47,roughness:1,flatShading:true});
-  placeInstanced(crowns,cmat,treePositions.length,i=>{const p=treePositions[i];return {x:p.x,y:p.y+p.sy*.54,z:p.z,sx:p.sx*2.3,sy:p.sy*.48,sz:p.sz*2.3,rot:p.rot}});
+  const nightCrown=new THREE.ConeGeometry(1.8,5,7);nightCrown.translate(0,2.5,0);
+  const crownShapes=[crowns,new THREE.IcosahedronGeometry(2.3,1),nightCrown];
+  const crownColors=[0x245a47,0x72875a,0x49465f];
+  for(let k=0;k<3;k++){
+    const group=treePositions.filter(p=>p.biome===k);
+    const material=new THREE.MeshStandardMaterial({color:crownColors[k],roughness:1,flatShading:true});
+    placeInstanced(crownShapes[k],material,group.length,i=>{const p=group[i];return {x:p.x,y:p.y+p.sy*(k===1?.80:.54),z:p.z,sx:p.sx*(k===1?1.2:1.45),sy:p.sy*(k===1?.18:.24),sz:p.sz*(k===1?1.2:1.45),rot:p.rot}});
+  }
   // Flower meadow: one draw call per palette, not thousands of individual meshes.
   const flowerGeo=new THREE.IcosahedronGeometry(.12,0);
   const paletteFlowers=[0xe2c48d,0xe7d9ca,0x9fb2c6,0xe3aba3];
@@ -101,6 +120,58 @@ function trees(){
   const blades=new THREE.ConeGeometry(.10,1.0,3);blades.translate(0,.4,0);
   const grass=[];for(let i=0;i<1300;i++){const b=biomes[i%3],a=rand()*6.28,r=10+Math.sqrt(rand())*145,x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r;grass.push({x,y:terrain(x,z),z,sx:.4+rand(),sy:.45+rand()*.8,sz:1,rot:rand()*6.28})}
   placeInstanced(blades,new THREE.MeshStandardMaterial({color:0x739a6f,side:THREE.DoubleSide,roughness:1}),grass.length,i=>grass[i]);
+}
+// Quiet paths and clustered understory give the landscapes depth without individual draw calls.
+function landscapeDetails(){
+  const rockGeo=new THREE.DodecahedronGeometry(1,0);
+  const shrubGeo=new THREE.IcosahedronGeometry(1,1);
+  const rockColors=[0x6a7161,0x99917c,0x686578];
+  const shrubColors=[0x345e45,0x82936a,0x544e72];
+  for(let k=0;k<3;k++){
+    const b=biomes[k],rocks=[],shrubs=[];
+    for(let i=0;i<145;i++){
+      const a=rand()*Math.PI*2,r=21+Math.sqrt(rand())*135;
+      const x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r;
+      const q=.35+rand()*1.15;
+      rocks.push({x,y:terrain(x,z)+q*.20,z,sx:q*(1+rand()),sy:q*.5,sz:q,rot:rand()*6.28});
+    }
+    for(let i=0;i<245;i++){
+      const a=rand()*Math.PI*2,r=24+Math.sqrt(rand())*145;
+      const x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r,q=.45+rand()*.8;
+      shrubs.push({x,y:terrain(x,z)+q*.55,z,sx:q*1.35,sy:q*.7,sz:q,rot:rand()*6.28});
+    }
+    placeInstanced(rockGeo,new THREE.MeshStandardMaterial({color:rockColors[k],roughness:1,flatShading:true}),rocks.length,i=>rocks[i]);
+    placeInstanced(shrubGeo,new THREE.MeshStandardMaterial({color:shrubColors[k],roughness:1,flatShading:true}),shrubs.length,i=>shrubs[i]);
+  }
+  // Low, gently curving paths link the central clearings. Their vertices follow terrain.
+  for(const target of [biomes[1],biomes[2]]){
+    const coords=[],indices=[],segments=180;
+    for(let i=0;i<=segments;i++){
+      const t=i/segments,x=target.x*t,z=target.z*t+Math.sin(t*Math.PI)*12;
+      const dx=target.x,dz=target.z+12*Math.PI*Math.cos(t*Math.PI),len=Math.hypot(dx,dz);
+      for(const side of [-1,1]){
+        const px=x-side*dz/len*2.2,pz=z+side*dx/len*2.2;
+        coords.push(px,terrain(px,pz)+.15,pz);
+      }
+      if(i<segments){const n=i*2;indices.push(n,n+2,n+1,n+1,n+2,n+3)}
+    }
+    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(coords,3));geo.setIndex(indices);geo.computeVertexNormals();
+    scene.add(new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x9a8b6d,roughness:1,side:THREE.DoubleSide})));
+  }
+}
+const atmosphere={
+  forest:{fog:0x18312f,sky:0x091b23,sun:0xffddab,hemi:0xc9e3d5,exposure:1.35},
+  garden:{fog:0x45544a,sky:0x233b3a,sun:0xffdfa7,hemi:0xf3e7c8,exposure:1.48},
+  night:{fog:0x282b45,sky:0x10172f,sun:0xb4bee7,hemi:0xaab6dc,exposure:1.12}
+};
+const atmosphereColors={fog:new THREE.Color(),sky:new THREE.Color(),sun:new THREE.Color(),hemi:new THREE.Color()};
+function updateAtmosphere(delta){
+  const a=atmosphere[biomeAt(camX,camZ).id],blend=1-Math.exp(-delta*.6);
+  scene.fog.color.lerp(atmosphereColors.fog.set(a.fog),blend);
+  scene.background.lerp(atmosphereColors.sky.set(a.sky),blend);
+  sun.color.lerp(atmosphereColors.sun.set(a.sun),blend);
+  hemi.color.lerp(atmosphereColors.hemi.set(a.hemi),blend);
+  renderer.toneMappingExposure=THREE.MathUtils.lerp(renderer.toneMappingExposure,a.exposure,blend);
 }
 function createPlaceholder(){const c=document.createElement('canvas');c.width=512;c.height=640;const p=c.getContext('2d');const grad=p.createLinearGradient(0,0,512,640);grad.addColorStop(0,'#345c52');grad.addColorStop(1,'#122a29');p.fillStyle=grad;p.fillRect(0,0,512,640);p.strokeStyle='#c9b788';p.lineWidth=2;p.strokeRect(28,28,456,584);p.font='70px Georgia';p.textAlign='center';p.fillStyle='#d8c18e';p.fillText('✺',256,260);p.font='23px Georgia';p.fillStyle='#eee5ce';p.fillText('MELISA FORTIN',256,334);p.font='18px sans-serif';p.fillStyle='#b6c5bb';p.fillText('ARCHIVES DES TATOUAGES',256,368);const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;return tex;}
 function signCanvas(text){const c=document.createElement('canvas');c.width=1024;c.height=270;const ctx=c.getContext('2d');ctx.fillStyle='#122921';ctx.fillRect(0,0,1024,270);ctx.strokeStyle='#b8ad7b';ctx.lineWidth=6;ctx.strokeRect(14,14,996,242);ctx.font='46px Georgia';ctx.fillStyle='#dec9a5';ctx.textAlign='center';ctx.fillText(text,512,155);const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;return tex;}
@@ -141,7 +212,7 @@ function makeCard(i){
   const pillar=new THREE.Mesh(reusableGeo.post,matPost);pillar.position.y=1.4;g.add(pillar);
   const frame=new THREE.Mesh(reusableGeo.frame,matFrame);frame.position.set(0,3.65,0);g.add(frame);
   const face=new THREE.Mesh(reusableGeo.panel,new THREE.MeshBasicMaterial({map:placeholderTexture,side:THREE.DoubleSide}));face.position.set(0,3.65,.13);face.userData.artIndex=i;g.add(face);
-  const light=new THREE.Mesh(new THREE.SphereGeometry(.10,8,6),new THREE.MeshBasicMaterial({color:0xd9bb88}));light.position.set(0,6.13,.18);g.add(light);
+  const light=new THREE.Mesh(reusableGeo.indicator,indicatorMaterial);light.position.set(0,6.13,.18);g.add(light);
   scene.add(g);const rec={group:g,face,art,index:i,texture:null,requested:false};activeCards.set(i,rec);return rec;
 }
 function showPhoto(rec){
@@ -151,6 +222,9 @@ function showPhoto(rec){
     if(activeCards.get(rec.index)!==rec){tex.dispose();return;}
     tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
     rec.texture=tex;rec.face.material.map=tex;rec.face.material.needsUpdate=true;
+    // Contain the photo in the frame without stretching a tattoo.
+    const image=tex.image,aspect=image?.width/image?.height,frameAspect=3.4/4.25;
+    if(Number.isFinite(aspect)&&aspect>0){rec.face.scale.set(aspect<frameAspect?aspect/frameAspect:1,aspect>frameAspect?frameAspect/aspect:1,1)}
   };
   textureLoader.load(url,install,undefined,()=>{
     if(url!==rec.art.image && activeCards.get(rec.index)===rec){textureLoader.load(rec.art.image,install,undefined,()=>{});}
@@ -182,14 +256,40 @@ function inspect(art){ if(!art)return;document.exitPointerLock?.();$('#detailTit
 function hideDetails(){$('#details').hidden=true}
 function hideHelp(){$('#help').hidden=true}
 function showToast(message){const el=$('#toast');el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),3800)}
-function teleport(x,z){
-  camX=x;camZ=z;pitch=-.07;
-  // Look toward nearest artwork or toward the center of the garden.
-  const nearest=positions.reduce((best,p)=>{const d=(p.x-x)**2+(p.z-z)**2;return d<best.d?{d,p}:best},{d:Infinity,p:null}).p;
-  const dest=nearest||{x:0,z:0};yaw=Math.atan2(-(dest.x-camX),-(dest.z-camZ));
+function teleport(x,z,target=null){
+  interactionArt=null;$('#interaction').hidden=true;
+  camX=x;camZ=z;
+  // A target is a panel position: aim at its centre, not the ground below it.
+  const nearest=target||positions.reduce((best,p)=>{const d=(p.x-x)**2+(p.z-z)**2;return d<best.d?{d,p}:best},{d:Infinity,p:null}).p;
+  const dest=nearest||{x:0,z:0,y:terrain(0,0)};
+  const dx=dest.x-camX,dz=dest.z-camZ;
+  yaw=Math.atan2(-dx,-dz);
+  pitch=THREE.MathUtils.clamp(Math.atan2((dest.y+3.65)-(terrain(camX,camZ)+1.85),Math.hypot(dx,dz)),-1.35,1.35);
+  camera.position.set(camX,terrain(camX,camZ)+1.85,camZ);camera.rotation.set(pitch,yaw,0,'YXZ');camera.updateMatrixWorld();
   freeCards();refreshCards();updateBiome();drawMiniMap();
 }
-function goBiome(id){const bi=biomes.find(b=>b.id===id);if(!bi)return;teleport(bi.x+7,bi.z+30);showToast(bi.name);}
+function artworkApproach(p){
+  // Panels face their biome centre; approach from that side for an unobstructed view.
+  const bi=biomes.find(b=>b.id===p.biome),dx=p.x-bi.x,dz=p.z-bi.z,dist=Math.hypot(dx,dz)||1;
+  return {x:p.x-dx/dist*8,z:p.z-dz/dist*8};
+}
+function arrivalForBiome(bi){
+  let best=null;
+  for(const p of positions){
+    const radius=Math.hypot(p.x-bi.x,p.z-bi.z);
+    if(p.biome!==bi.id||radius>55)continue;
+    const point=artworkApproach(p);
+    // Staying outside the arch and looking outwards keeps its posts behind the visitor.
+    if(Math.hypot(point.x-bi.x,point.z-bi.z)<10)continue;
+    const clearance=positions.reduce((min,other)=>other===p?min:Math.min(min,(other.x-point.x)**2+(other.z-point.z)**2),Infinity);
+    if(!best||clearance>best.clearance)best={...point,clearance,target:p};
+  }
+  return best||{x:bi.x,z:bi.z+12,target:null};
+}
+function goBiome(id){
+  const bi=biomes.find(b=>b.id===id);if(!bi)return;
+  const arrival=arrivalForBiome(bi);teleport(arrival.x,arrival.z,arrival.target);showToast(bi.name);
+}
 function updateBiome(){const b=biomeAt(camX,camZ);$('#biomeLabel').textContent=b.name;$('#coords').textContent=`X ${Math.round(camX)} · Z ${Math.round(camZ)}`;document.querySelectorAll('.biome').forEach(btn=>btn.classList.toggle('active',btn.dataset.biome===b.id))}
 function drawMiniMap(){
   const can=$('#minimap'),ctx=can.getContext('2d'),w=can.width,h=can.height;
@@ -206,7 +306,7 @@ function searchResults(){
   if(!term){out.hidden=true;out.replaceChildren();$('#searchCount').textContent='';return}
   const matches=works.map((w,i)=>({w,i})).filter(({w})=>[w.title,w.category,w.description,String(w.year)].some(s=>String(s||'').toLocaleLowerCase('fr').includes(term)));
   out.hidden=false;out.replaceChildren();$('#searchCount').textContent=`${matches.length} RÉSULTAT(S)`;
-  for(const {w,i} of matches.slice(0,9)){const button=document.createElement('button');button.textContent=w.title;const small=document.createElement('small');small.textContent=`${w.category||'Tatouage'} · ${w.year||'—'}`;button.append(small);button.onclick=()=>{const p=positions[i];teleport(p.x+Math.sin(i*1.6)*8,p.z+Math.cos(i*1.6)*8);$('#search').value='';searchResults();$('#search').blur();showToast(`Œuvre trouvée : ${w.title}`)};out.append(button)}
+  for(const {w,i} of matches.slice(0,9)){const button=document.createElement('button');button.textContent=w.title;const small=document.createElement('small');small.textContent=`${w.category||'Tatouage'} · ${w.year||'—'}`;button.append(small);button.onclick=()=>{const p=positions[i],point=artworkApproach(p);teleport(point.x,point.z,p);$('#search').value='';searchResults();$('#search').blur();showToast(`Œuvre trouvée : ${w.title}`)};out.append(button)}
   if(!matches.length){const p=document.createElement('p');p.textContent='Aucune œuvre trouvée.';p.style.cssText='font-size:12px;color:#c4c7b9';out.append(p)}
 }
 function validateCatalog(raw){
@@ -240,6 +340,8 @@ function setupEvents(){
     if(e.code==='Escape'){hideDetails();hideHelp()}
   });
   document.addEventListener('keyup',e=>{keys[e.code]=false});
+  const stopMovement=()=>{keys={};mobileF=mobileR=0;$('#knob').style.transform='translate(0,0)'};
+  addEventListener('blur',stopMovement);document.addEventListener('visibilitychange',()=>{if(document.hidden)stopMovement()});
   document.querySelectorAll('.biome').forEach(b=>b.onclick=()=>goBiome(b.dataset.biome));
   $('#search').addEventListener('input',searchResults);
   $('#fullscreen').onclick=()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen?.();else document.exitFullscreen?.()};
@@ -273,11 +375,12 @@ function animate(){requestAnimationFrame(animate);const delta=Math.min(clock.get
   let f=0,r=0;if(active&&!modal&&document.activeElement!==$('#search')){f=(keys.KeyW||keys.ArrowUp?1:0)-(keys.KeyS||keys.ArrowDown?1:0)+mobileF;r=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+mobileR}
   const velocity=v3(r,0,-f);if(velocity.lengthSq()){velocity.normalize().applyAxisAngle(UP,yaw).multiplyScalar((keys.ShiftLeft||keys.ShiftRight?12.4:6.2)*delta);camX=THREE.MathUtils.clamp(camX+velocity.x,-350,350);camZ=THREE.MathUtils.clamp(camZ+velocity.z,-350,350);bob+=delta*11}else{bob+=delta*3}
   camera.position.set(camX,terrain(camX,camZ)+1.85+(velocity.lengthSq()?.034*Math.sin(bob):0),camZ);camera.rotation.set(pitch,yaw,0,'YXZ');
+  skyGroup.position.copy(camera.position);updateAtmosphere(delta);
   animateDecor(t);renderer.render(scene,camera);
   frameCounter++;if(t-fpsLast>1){$('#fps').textContent=String(Math.round(frameCounter/(t-fpsLast)));frameCounter=0;fpsLast=t}
   if(t-worldLast>.42){refreshCards();updateBiome();worldLast=t}
   if(t-miniLast>.26){drawMiniMap();miniLast=t}
   if(t-interactionLast>.13){interactionArt=active&&!modal?getNearest():null;$('#interaction').hidden=!interactionArt;if(interactionArt)$('#nearTitle').textContent=interactionArt.title;interactionLast=t}
 }
-function start(){addSky();makeGround();trees();landmarks();makeButterflies();makeFauna();makeFireflies();createPositions();setupEvents();setupInput();updateStats();updateBiome();refreshCards();drawMiniMap();animate()}
+function start(){addSky();makeGround();trees();landscapeDetails();landmarks();makeButterflies();makeFauna();makeFireflies();createPositions();setupEvents();setupInput();updateStats();const arrival=arrivalForBiome(biomes[0]);teleport(arrival.x,arrival.z,arrival.target);animate()}
 try{start()}catch(err){console.error('Erreur de la scène 3D',err);showToast('Erreur du rendu 3D : '+err.message)}
