@@ -4,16 +4,16 @@ Moteur Three.js, promenade immersive, galeries de photos de tatouages et médias
 
 ## État du catalogue
 
-125 médias publics téléversés en 2025 ou 2026 (41 + 84). Ils incluent 12 œuvres déjà identifiées. Tous les autres médias ne sont pas nécessairement des tatouages. L'année du téléversement n'est pas forcément l'année de réalisation du tatouage.
+L’examen visuel des 125 entrées Wix (41 téléversées en 2025 et 84 en 2026) distingue **58 images montrant des tatouages sur peau** et **67 autres médias**. Ces chiffres comptent les fichiers, pas nécessairement des œuvres uniques. Le détail par identifiant et la méthode figurent dans [le rapport de tri](docs/examen-visuel-catalogue-wix.md) et son [tableau CSV](docs/catalogue-wix-examen-visuel-2025-2026.csv). L’année indiquée est celle du téléversement, et un lien CDN accessible ne prouve ni la publication en galerie ni l’autorisation de diffusion.
 
 ## Mise à jour — archives Wix 2025–2026
 
-Cette version ouvre directement la promenade 3D avec 125 images publiques de la médiathèque Wix : **41 images téléversées en 2025** et **84 images téléversées en 2026**. Douze photos identifiées dans la galerie publique avaient déjà des titres et descriptions vérifiés; elles sont conservées et dédoublonnées. **Les 113 autres entrées sont des médias publics à trier : tous ne sont PAS nécessairement des tatouages.** Leur année est l'année de téléversement Wix, pas une preuve de l'année d'exécution de l'œuvre.
+Cette version ouvre directement la promenade 3D avec 125 images accessibles par leurs liens Wix : **41 images téléversées en 2025** et **84 images téléversées en 2026**. Douze photos identifiées dans la galerie publique avaient déjà des titres et descriptions vérifiés; elles sont conservées et dédoublonnées. **Les 113 autres entrées étaient initialement à trier ; le résultat visuel est détaillé ci-dessus.** Leur année est l'année de téléversement Wix, pas une preuve de l'année d'exécution de l'œuvre.
 
 - Le fichier `IMPORTER_TOUTES_IMAGES_WIX_2025_2026.json` contient les **125 liens d'images** et les métadonnées de tri.
 - Les images restent sur les serveurs Wix (pas de copies binaires dans l'archive ZIP). Une connexion Internet est requise.
 - La promenade utilise le chargement spatial progressif; aucune image 2025/26 n'est téléchargée en masse au lancement.
-- Le site Wix public n'a pas été modifié. La version de ce projet est sauvegardée sous le nom TATTOOmap dans une branche GitHub dédiée.
+- Le site Wix public n'est pas modifié par ce projet.
 - Dans Windows : décompresser puis lancer `LANCER_WINDOWS.bat`. La fenêtre de commande doit rester ouverte.
 
 ---
@@ -42,8 +42,8 @@ Sur macOS/Linux, `cd` dans ce dossier puis `python3 -m http.server 8765`, ouvrir
 
 ## Étape 2 — 02_peaufine
 
-- Trois paysages : forêt, jardin botanique, crépuscule ;
-- Ciel procédural, végétation en maillages instanciés, feuillage, fleurs, sentiers lumineux, papillons, cerfs et renards stylisés ;
+- Trois paysages : forêt, jardin botanique, crépuscule ; relief doux, végétation différenciée, rochers et sentiers reliant les secteurs ;
+- Ciel procédural suivant la caméra, lumière et brouillard variant selon le paysage, végétation en maillages instanciés, fleurs, sentiers lumineux, papillons et animaux stylisés ;
 - Navigation à la première personne, téléportation entre biomes (boutons ou touches 1, 2, 3) ;
 - Recherche par titre, catégorie, description et année ;
 - Carte, coordonnées, compteur d'œuvres, FPS ;
@@ -107,9 +107,9 @@ Importer le JSON dans l'interface. Les liens `image` peuvent également être de
 
 ## Tests et limites
 
-- Vérification syntaxique JavaScript (`node --check`) et présence des ressources, sans erreur de syntaxe.
-- Contrôles sur le catalogue JSON (images HTTPS ou chemins relatifs, titres, identifiants).
-- **Aucune validation graphique interactive complète avec images distantes n'a été effectuée dans le navigateur cible** : à tester localement, notamment les textures Wix et les performances sur téléphone.
+- Syntaxe JavaScript vérifiée avec `node --check` ; les 125 identifiants du relevé visuel correspondent à l’inventaire JSON.
+- Sous Windows, le serveur local a servi la galerie ; les cas de Python absent et de port déjà occupé ont été exercés. L’installation complète sur le Bureau n’a pas été testée.
+- Chrome automatisé avec rendu logiciel a affiché les trois paysages, des textures Wix, la recherche et les boutons de téléportation. Ce test ne mesure pas les performances de la carte graphique et ne remplace pas une promenade manuelle ; le téléphone reste à tester.
 - LOD au niveau des **panneaux** (instanciation et chargement selon distance), non pas un générateur de modèles 3D pour tatouages.
 - Le mode mobile est expérimental. Pas de collisions avancées avec arbres, ni audio 3D, ni synchronisation automatique avec Wix à ce stade.
 
