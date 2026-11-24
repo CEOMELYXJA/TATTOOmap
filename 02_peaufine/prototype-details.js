@@ -1,5 +1,102 @@
 import * as THREE from 'three';
 
+// Keep the characteristic silhouettes of the 2026 compositions when seen
+// from the trail. All curves are actual geometry and can be viewed from behind.
+export function rainbowHeart(b) {
+  const palette = ['#d16a72', '#df9a54', '#d4b95c', '#84b09a', '#86a4c0'];
+  palette.forEach((color, layer) => {
+    const radius = .96 - layer * .047;
+    const points = Array.from({length: 47}, (_, i) => {
+      const angle = .012 + i / 46 * (Math.PI * 2 - .024);
+      const x = Math.sin(angle) ** 3;
+      const y = (13*Math.cos(angle) - 5*Math.cos(2*angle) -
+        2*Math.cos(3*angle) - Math.cos(4*angle)) / 16;
+      return [radius*x, 1.05 + radius*y, .045*Math.cos(angle)];
+    });
+    b.path(points,.031,color);
+  });
+}
+
+export function littleBear(b) {
+  const peach = '#e2a075', cream = '#ffe1a8', pink = '#ce767e';
+  b.ball([0,.66,0],[.40,.48,.28],peach);
+  b.ball([0,.67,.235],[.25,.29,.075],cream);
+  b.ball([0,1.29,.035],[.46,.40,.315],peach);
+  for (const side of [-1,1]) {
+    b.ball([side*.32,1.62,.03],[.19,.19,.14],peach);
+    b.ball([side*.33,1.63,.15],[.105,.108,.035],pink);
+    b.ball([side*.15,1.33,.32],[.050,.061,.032],'#42333e');
+    b.ball([side*.14,1.36,.34],[.012,.015,.009],'#fff5de');
+    b.ball([side*.40,.78,0],[.16,.29,.14],peach,[0,0,side*.37]);
+    b.ball([side*.26,.20,.11],[.21,.20,.22],peach);
+  }
+  b.ball([0,1.19,.31],[.17,.115,.07],cream);
+  b.ball([0,1.25,.37],[.064,.047,.037],'#5e4953');
+  for(const [x,y,color] of [[-.10,.70,'#dc7c85'],[.01,.75,'#83abad'],[.10,.64,'#dba85b']]) {
+    b.ball([x,y,.312],[.046,.046,.019],color);
+  }
+}
+
+export function elbowWebs(b) {
+  function fan(x, y, scale, turn) {
+    const point=(angle,radius) => [
+      x+scale*radius*Math.cos(angle+turn),
+      y+scale*radius*Math.sin(angle+turn),
+      .19*(1-radius)*scale
+    ];
+    const angles=Array.from({length:8},(_,i)=>.12+i*.40);
+    for (const a of angles) b.rod(point(a,0),point(a,1),.019,.010,'#716976');
+    for(let j=0;j<angles.length-1;j++) {
+      const a=angles[j], next=angles[j+1];
+      for(const r of [.23,.43,.66,.89]) {
+        b.path([point(a,r),point((a+next)/2,r*.91),point(next,r)],.012,'#b4a3a4');
+      }
+    }
+  }
+  fan(-.32,.27,1.05,.36);
+  fan(.54,.51,.78,-.90);
+}
+
+export function sixPetals(b) {
+  b.path([[0,0,0],[.10,.45,0],[-.04,1.0,.04],[.05,1.38,0]],.034,'#526a53');
+  leaf(b,[.07,.60,.02],[-.43,.98,.06],.09,'#687957');
+  for(let i=0;i<6;i++) {
+    const angle=i*Math.PI/3+.11;
+    b.add(curvedPetal(angle,.018,.61,.18,.095,.112),
+      [.05,1.43,0],[1,1,1],i%2?'#ae7582':'#945d74');
+    const a=[.05+Math.sin(angle)*.12,1.43+Math.cos(angle)*.12,.045];
+    const tip=[.05+Math.sin(angle)*.53,1.43+Math.cos(angle)*.53,.12];
+    b.rod(a,tip,.014,.004,'#754b62');
+  }
+  b.ball([.05,1.43,.11],[.11,.10,.06],'#caa67d');
+}
+
+export function floweringSpray(b, horizontal) {
+  const twig='#73615e', foliage='#777f69', petal='#c0a4ac';
+  function point(t) {
+    return horizontal
+      ? [-.94+1.94*t, .28+.80*t+.18*Math.sin(Math.PI*t), .10*Math.sin(t*3.6)]
+      : [.12*Math.sin(t*5),.08+1.83*t,.09*Math.sin(t*3)];
+  }
+  b.path(Array.from({length:7},(_,i)=>point(i/6)),.024,twig);
+  for(let i=0;i<7;i++){
+    const t=.17+i*.115, side=i%2 ? 1 : -1, [x,y,z]=point(t);
+    const end = horizontal ? [x+.20,y+side*.24,z+.045] : [x+side*.24,y+.22,z+.035];
+    b.rod([x,y,z],end,.019,.008,twig);
+    leaf(b,[x,y,z],[x+side*.14,y+.21,z+.07],.045,foliage);
+    if(i%3===0 || (!horizontal && i===5)) {
+      for(let j=0;j<5;j++){
+        const a=j*Math.PI*.4;
+        b.ball([end[0]+.083*Math.sin(a),end[1]+.083*Math.cos(a),end[2]],
+          [.061,.093,.035],petal,[0,0,-a]);
+      }
+      b.ball(end,[.039,.039,.044],'#ad9566');
+    } else {
+      leaf(b,[x,y,z],end,.053,foliage);
+    }
+  }
+}
+
 // These models interpret the two reviewed reference photographs. Their colors
 // and composition are intentionally specific to those photographs.
 function curvedPetal(angle, innerRadius, length, width, lift, depth) {

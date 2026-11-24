@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { buildSculpture } from './sculptures.js';
-import { buildPrototypeRose, buildPrototypeSkulls } from './prototype-details.js';
+import {
+  buildPrototypeRose, buildPrototypeSkulls, rainbowHeart, littleBear,
+  elbowWebs, floweringSpray, sixPetals
+} from './prototype-details.js';
 
 // Each stationary body or animated limb is one draw, including all of its colours.
 // Recipes are baked once, then the geometry is shared between encounters.
@@ -205,13 +208,17 @@ function feline(b,code,variant) {
   }
 }
 
-function dog(b,pug) {
-  const color=pug?'#c9af86':'#a97551', dark=pug?'#39302e':'#704434';
+function dog(b,pug,variant) {
+  const small=variant==='small-dog';
+  const color=pug?'#c9af86':small?'#ab8365':'#99877e', dark=pug?'#39302e':small?'#624839':'#645c58';
   b.ball([0,1.28,0],[.82,.49,.42],color);
   for(const s of [-1,1]) for(const x of [-.54,.51]) leg(b,x,s*.27,x<0,color);
   b.ball([.67,1.82,0],[.44,.45,.39],color);
   for(const s of [-1,1]){
-    b.ball([.56,1.91,s*.34],[.20,.27,.11],dark,[s*.14,0,-.25]);
+    if(small) {
+      b.poly([[-.17,0],[.13,0],[-.10,.29]],.13,[.53,2.09,s*.29-.06],dark);
+      b.ball([.89,1.73,s*.17],[.18,.12,.16],'#d5b191');
+    } else b.ball([.56,1.91,s*.34],[.20,.27,.11],dark,[s*.14,0,-.25]);
     b.ball([.91,1.90,s*.265],[.086,.096,.066],ink);
     b.ball([.93,1.925,s*.31],[.025,.024,.016],ivory);
   }
@@ -466,8 +473,17 @@ function makeTemplate(code,variant) {
   }
   switch(code){
     case 'tiger': case 'lion': case 'cub': case 'cat': feline(body,code,variant); break;
-    case 'dog': case 'pug': dog(body,code==='pug'); break;
-    case 'gorilla': case 'bear': primateOrBear(body,code==='gorilla'); break;
+    case 'dog': case 'pug': dog(body,code==='pug',variant); break;
+    case 'gorilla': primateOrBear(body,true); break;
+    case 'bear': littleBear(body); break;
+    case 'heart':
+      if(variant==='rainbow') rainbowHeart(body);
+      else buildSculpture(code,body);
+      break;
+    case 'web':
+      if(variant==='elbows') elbowWebs(body);
+      else buildSculpture(code,body);
+      break;
     case 'bird': case 'owl': case 'raptor': case 'dragon': flight(body,part,code); break;
     case 'butterfly': case 'moth': case 'insect': butterfly(body,part,code,variant); break;
     case 'seahorse': case 'fish': case 'betta': case 'anglerfish': case 'swordfish': fish(body,part,code); break;
@@ -480,7 +496,15 @@ function makeTemplate(code,variant) {
       if (variant === 'prototype') buildPrototypeSkulls(body);
       else buildSculpture(code,body);
       break;
-    case 'flower': case 'blossom': case 'palm': case 'sunflower': case 'lotus': plant(body,code,variant); break;
+    case 'flower':
+      if(variant==='six-petals') sixPetals(body);
+      else plant(body,code,variant);
+      break;
+    case 'blossom':
+      if(variant==='shoulder' || variant==='fine-line') floweringSpray(body,variant==='shoulder');
+      else plant(body,code,variant);
+      break;
+    case 'palm': case 'sunflower': case 'lotus': plant(body,code,variant); break;
     default:
       if(!supportedModels.includes(code)) throw new Error('Motif 3D inconnu : '+code);
       buildSculpture(code,body);
@@ -510,6 +534,8 @@ function hash(text) {
   return h;
 }
 function variantFor(code,work,seed){
+  const variants = photoVariants[work.id];
+  if(variants && variants[code]) return variants[code];
   if ((code==='rose' && work.id==='wix-upload-2026-062') ||
       (code==='skull' && work.id==='wix-upload-2026-065')) return 'prototype';
   if ((code==='tiger' && work.id==='wix-upload-2026-035') ||
@@ -518,6 +544,28 @@ function variantFor(code,work,seed){
   if(code==='flower' && seed%2) return 'plum';
   return '';
 }
+
+const photoVariants = {
+  'wix-upload-2026-040': {heart:'rainbow'},
+  'wix-upload-2026-063': {web:'elbows'},
+  'wix-upload-2026-066': {blossom:'fine-line'},
+  'wix-upload-2026-068': {dog:'small-dog'},
+  'wix-upload-2026-079': {blossom:'shoulder'},
+  'wix-upload-2026-082': {flower:'six-petals'}
+};
+
+// [x, ground offset, z, scale] arranges companion motifs around the subject.
+const compositions = {
+  'wix-upload-2026-039': {bird:[.08,1.46,-.14,.75],face:[0,.80,0,.54],turtle:[-.10,0,.22,.49]},
+  'wix-upload-2026-040': {bear:[0,.57,.24,.60],heart:[0,0,-.31,1.13]},
+  'wix-upload-2026-064': {snake:[-1.05,0,.35,.59],butterfly:[.93,1.67,-.03,.34],flower:[1.03,0,.52,.49]},
+  'wix-upload-2026-067': {lips:[.59,1.56,-.24,.42]},
+  'wix-upload-2026-068': {paw:[-.96,0,.40,.29]},
+  'wix-upload-2026-070': {butterfly:[-.91,1.64,-.12,.34],rose:[1.23,0,.42,.46],face:[.65,1.36,-.31,.55]},
+  'wix-upload-2026-075': {symbols:[.49,.39,-.07,.41]},
+  'wix-upload-2026-077': {moon:[0,1.90,-.17,.48],scales:[0,.09,.30,.46]},
+  'wix-upload-2026-078': {flower:[-.70,.25,.25,.63]}
+};
 
 export function createMotif(work){
   const group=new THREE.Group(), animated=[];
@@ -534,13 +582,15 @@ export function createMotif(work){
       pivot.position.set(Math.cos(angle)*1.62,0,Math.sin(angle)*1.0+.45);
       pivot.scale.setScalar(i===1?.53:.39);
     }
-    // Grazers and flowers stand on the terrain; the winged motifs hover above it.
-    const hover=flying.has(code)?.66:0;
-    pivot.position.y=hover;
+    const layout=compositions[work.id]?.[code];
+    if(layout) {
+      pivot.position.set(layout[0],layout[1],layout[2]); pivot.scale.setScalar(layout[3]);
+    } else if(flying.has(code)) pivot.position.y=.66;
+    const hover=pivot.position.y;
     const yaw=.2*(i%2?-1:1);
     pivot.rotation.y=yaw;
-    const motion=flora.has(code)||code==='flame'?'sway':flying.has(code)?'hover':breathing.has(code)?'breathe':swimmers.has(code)?'swim':'still';
-    if(motion!=='still') animated.push({object:pivot,motion,baseY:hover,baseYaw:yaw,phase:(seed%997)*.016+i});
+    const motion=flora.has(code)||code==='flame'||code==='web'?'sway':flying.has(code)?'hover':breathing.has(code)?'breathe':swimmers.has(code)?'swim':'suspend';
+    animated.push({object:pivot,motion,baseY:hover,baseYaw:yaw,phase:(seed%997)*.016+i});
     for(const mesh of piece.children){
       if(mesh.userData.motion) animated.push({object:mesh,motion:mesh.userData.motion,side:mesh.userData.side,phase:(seed%997)*.016+i});
     }
@@ -564,6 +614,10 @@ export function animateMotif(group,time,visitorPosition){
       case 'sway': obj.rotation.z=(.036+proximity*.055)*Math.sin(t*1.4); break;
       case 'breathe': obj.rotation.y=p.baseYaw+(.057+proximity*.08)*Math.sin(t*.86); obj.rotation.z=.008*Math.sin(t*1.85); break;
       case 'swim': obj.rotation.y=p.baseYaw+.048*Math.sin(t*1.18); break;
+      case 'suspend':
+        obj.position.y=p.baseY+.04+.04*Math.sin(t*1.13);
+        obj.rotation.y=p.baseYaw+(.035+proximity*.09)*Math.sin(t*.81);
+        break;
     }
   }
 }

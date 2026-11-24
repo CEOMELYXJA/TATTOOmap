@@ -2,9 +2,9 @@
 
 TATTOOmap is a Three.js world built around Melisa Fortin's tattoo portfolio. Explore a forest, a botanical garden and a mystical twilight landscape. Select a motif to see its source photograph and verified catalogue information.
 
-## Current prototype
+## Current world
 
-Four identified tattoos are represented by animated, three-dimensional interpretations: a tiger with flowers, a red rose, a butterfly with flowers, and skulls with flames. These are artistic interpretations of the photographs, not automatic reconstructions. The catalogue and original files are preserved so the world can grow as more works are modelled.
+The world features 27 photographs identified as tattoos in the media uploaded in 2026, along with the butterfly photograph from the earlier prototype uploaded in 2025. Each is associated with an animated, three-dimensional interpretation and its source photograph. These are stylized artistic interpretations, not automatic reconstructions. Dates in the inventory refer to uploads and do not establish when the tattoos were made. The catalogue and original files are preserved so the world can grow as more works are modelled.
 
 The reviewed inventory contains 125 Wix media files uploaded in 2025–2026. Visual review identified 58 photographs showing tattoos and 67 other media files. These counts refer to files, not necessarily distinct works. Upload dates do not establish when a tattoo was made. See the [visual review](docs/examen-visuel-catalogue-wix.md) and its [CSV](docs/catalogue-wix-examen-visuel-2025-2026.csv) for the individual records and limitations.
 
@@ -32,9 +32,9 @@ On touch devices, use the joystick and drag on the scene to look around. The pho
 
 ## Catalogue and imports
 
-The four modelled works use entries from `assets/tattoos.js`. `IMPORTER_TOUTES_IMAGES_WIX_2025_2026.json`, `assets/gallery.js` and `assets/wix_2025_2026.js` preserve the earlier catalogue data. Photos stay on their existing Wix URLs.
+The 28 works use entries from `assets/tattoos.js`. The [modelling inventory](docs/suivi-modelisation.csv) connects each of the 58 reviewed tattoo photographs with its identifier, source image, motifs and current status. `IMPORTER_TOUTES_IMAGES_WIX_2025_2026.json`, `assets/gallery.js` and `assets/wix_2025_2026.js` preserve the earlier catalogue data. Photos stay on their existing Wix URLs.
 
-The import button stores a valid JSON catalogue locally in the current browser. Imported entries are preserved for future modelling and are not automatically displayed in the four-work prototype. The CSV converter in `outils/csv_vers_json.py` can create JSON from a CSV following `outils/gabarit_portfolio.csv`.
+The import button stores a valid JSON catalogue locally in the current browser. Imported entries are preserved for future modelling and are not automatically displayed in the world. The CSV converter in `outils/csv_vers_json.py` can create JSON from a CSV following `outils/gabarit_portfolio.csv`.
 
 ## Project files
 
@@ -48,4 +48,4 @@ The import button stores a valid JSON catalogue locally in the current browser. 
 
 ## Validation and limitations
 
-The catalogue's four selected photographs and their interaction targets were checked in automated Chrome on Windows. Screenshot evidence and the current visual limitations are recorded in the prototype report. Browser performance depends on the device and graphics acceleration. Touch navigation remains experimental, and some details need further artistic modelling to match the original tattoos more closely.
+The earlier four-work prototype was checked in automated Chrome on Windows. The 2026 expansion was not tested, as requested. Earlier screenshot evidence and visual limitations are recorded in the prototype report. Browser performance depends on the device and graphics acceleration. Touch navigation remains experimental, and the stylized models can be refined to match the original tattoos more closely.

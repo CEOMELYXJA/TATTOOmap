@@ -29,14 +29,9 @@ const biomes = [
   {id:'garden',name:'JARDIN BOTANIQUE',x:160,z:65,color:'#c2ab70'},
   {id:'night',name:'CRÉPUSCULE MYSTIQUE',x:-160,z:65,color:'#b3a3d3'}
 ];
-// A small, explicitly chosen proof of concept. The full reviewed catalogue remains intact.
-const prototypeIds = new Set([
-  'wix-upload-2026-035', // tiger
-  'wix-upload-2026-062', // red rose
-  'wix-upload-2025-027', // butterfly
-  'wix-upload-2026-065', // skulls and flames
-]);
-const works = tattooWorks.filter(work => prototypeIds.has(work.id));
+// The year comes from the Wix upload record, not the date the tattoo was made.
+// The complete catalogue remains available for future additions.
+const works = tattooWorks.filter(work => work.uploadYear === 2026 || work.id === 'wix-upload-2025-027');
 let positions=[];
 let yaw=0, pitch=0, locked=false, active=false;
 let keys={};
@@ -190,6 +185,7 @@ function makeFireflies(){const particles=260;const p=new Float32Array(particles*
 const botanical = new Set(['rose', 'flower', 'flowers', 'blossom', 'blossomBranch', 'floweringBranch', 'lotus', 'sunflower', 'palm', 'branch', 'redRose']);
 const aquatic = new Set(['fish', 'betta', 'anglerfish', 'seahorse', 'swordfish']);
 const wild = new Set(['tiger', 'lion', 'gorilla', 'cat', 'dog', 'pug', 'bear', 'cub', 'teddy', 'bird', 'raptor', 'eagle', 'owl', 'butterfly', 'moth', 'snake', 'turtle']);
+const facesPositiveX = new Set(['tiger', 'lion', 'cat', 'dog', 'pug', 'gorilla', 'bear', 'snake', 'turtle']);
 
 function habitat(work) {
   const primary = work.models[0];
@@ -203,8 +199,18 @@ function createPositions() {
     const biome = habitat(work);
     const ordinal = counts.get(biome.id) || 0;
     counts.set(biome.id, ordinal + 1);
-    const angle = ordinal * 2.399963 + biomes.indexOf(biome) * 0.7;
-    const radius = 16 + Math.sqrt(ordinal) * 7;
+    // Place works on concentric paths so adjacent compositions have room to
+    // animate and the approach used by search stays clear of other motifs.
+    let slot = ordinal;
+    let ring = 0;
+    let capacity = 8;
+    while (slot >= capacity) {
+      slot -= capacity;
+      ring++;
+      capacity = 8 + ring * 4;
+    }
+    const radius = 24 + ring * 18;
+    const angle = slot * 2 * Math.PI / capacity + biomes.indexOf(biome) * 0.7 + ring * 0.26;
     const x = biome.x + Math.cos(angle) * radius;
     const z = biome.z + Math.sin(angle) * radius;
     return {index, x, z, y:terrain(x,z), biome:biome.id, angle};
@@ -223,10 +229,9 @@ function refreshMotifs() {
       const group = createMotif(works[point.index]);
       group.userData.artIndex = point.index;
       group.position.set(point.x, point.y, point.z);
-      // The feline faces +X in model space; the other three face +Z.
-      // Turn the principal motif toward the center of its clearing.
+      // Turn each principal motif toward the center of its clearing.
       const primary = works[point.index].models[0];
-      group.rotation.y = primary === 'tiger' ? Math.PI - point.angle : -Math.PI / 2 - point.angle;
+      group.rotation.y = facesPositiveX.has(primary) ? Math.PI - point.angle : -Math.PI / 2 - point.angle;
       scene.add(group);
       group.updateMatrixWorld(true);
       activeMotifs.set(point.index, group);
@@ -367,7 +372,7 @@ function setupMap() {
 }
 
 // Keep imported catalogues available for later development without placing
-// unreviewed images in this four-work prototype.
+// unreviewed images in the world.
 function setupImport() {
   const input = $('#importInput');
   $('#importBtn').onclick = () => input.click();
@@ -385,7 +390,7 @@ function setupImport() {
       if (!Array.isArray(previous)) throw new Error('Le catalogue sauvegardé doit être vérifié.');
       const all = new Map([...previous, ...valid].filter(work => work && typeof work.image === 'string').map(work => [work.image, work]));
       localStorage.setItem(key, JSON.stringify([...all.values()]));
-      showToast('Catalogue sauvegardé. La forêt présente les quatre œuvres du prototype.');
+      showToast('Catalogue sauvegardé. Il pourra être intégré à une prochaine mise à jour.');
     } catch (error) {
       showToast(`Importation impossible : ${error.message}`);
     } finally {
