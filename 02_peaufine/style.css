@@ -9,3 +9,38 @@
   .side-left{top:112px}
   .stat-row{margin:18px 0 20px}
 }
+
+/* Neutral charcoal surfaces keep the menus distinct from the forest. */
+:root{--deep:#111112;--glass:rgba(24,24,26,.82)}
+html,body{background:#111112}
+#vignette{background:radial-gradient(ellipse at center,transparent 40%,rgba(8,8,9,.42) 100%),linear-gradient(90deg,rgba(9,9,10,.64),transparent 29%,transparent 77%,rgba(9,9,10,.55))}
+.mark{width:72px;height:52px;border:0;border-radius:0;background:transparent;overflow:visible;flex-shrink:0}
+.mark img{display:block;width:100%;height:100%;object-fit:contain;filter:brightness(0) invert(1)}
+.live{color:#dedbd4}
+.status-dot{background:#d4c3a2;box-shadow:0 0 11px #c9b48a}
+.icon-btn{background:#18181acc}
+.icon-btn:hover,.subtle:hover{background:#3a3939}
+.biome{color:#ddd9d1}
+.biome:hover,.biome.active{background:#3c3b3dcc;color:#f3e4bf}
+.searchline input::placeholder{color:#bdbab3}
+.results small{color:#bdbab3}
+.maplegend{color:#e1d2ad}
+#minimap{filter:grayscale(.75)}
+.interaction{background:#171719ed}
+.interaction #nearTitle{color:#ddd9d1}
+.bottomline{background:#111113dc}
+.bottomline i{color:#bdbab3}
+.intro{background:radial-gradient(ellipse at 48% 38%,#343436a8,#09090bee 70%)}
+.intro-panel p{color:#dedbd4}
+.intro-panel button{color:#252321}
+.intro-foot,.intro-side{color:#bdbab3}
+.modal-dim{background:#080809df}
+.detail-sheet,.help-sheet{background:#202022}
+.detail-photo-wrap{background:#111112}
+.detail-text p,.help-sheet p{color:#d1cec8}
+dialog#albumDialog{background:#202022}
+dialog#albumDialog #albumList a:hover{background:#3a3939}
+#toast{background:#28282af2}
+#joystick{background:#18181abf}
+#mobileActions button{background:#202022e8}
+@media(max-width:750px){.mark{width:54px;height:39px}}
