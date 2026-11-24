@@ -10,11 +10,12 @@ import webbrowser
 
 ROOT = Path(__file__).resolve().parent.parent
 FILES = (
-    '02_peaufine/index.html',
+    'index.html',
     '02_peaufine/app.js',
     '02_peaufine/style.css',
-    'assets/gallery.js',
-    'assets/wix_2025_2026.js',
+    '02_peaufine/motifs.js',
+    '02_peaufine/sculptures.js',
+    'assets/tattoos.js',
 )
 
 
@@ -40,7 +41,7 @@ class LocalServer(ThreadingHTTPServer):
 
 
 def main(port=8765):
-    url = f'http://127.0.0.1:{port}/02_peaufine/'
+    url = f'http://127.0.0.1:{port}/'
     handler = partial(SimpleHTTPRequestHandler, directory=str(ROOT))
     server = LocalServer(('127.0.0.1', port), handler, bind_and_activate=False)
     try:

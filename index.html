@@ -1,1 +1,76 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TATTOOmap — Choix de version</title><style>body{margin:0;min-height:100vh;background:radial-gradient(at 50% 35%,#244438,#081916);color:#eae5d7;font:16px Georgia,serif;display:grid;place-items:center}.center{text-align:center;width:min(690px,90vw);padding:50px;border:1px solid #d4bd8759;background:#0c1f1bac}h1{font-size:45px;font-weight:normal}small{letter-spacing:.25em;color:#c8bb9a}p{color:#d1d8cf;line-height:1.65}nav{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin:30px 0}a{color:#183126;text-decoration:none;background:#dac294;padding:15px 18px;font:12px system-ui;font-weight:700;letter-spacing:.08em}a:nth-child(2){background:transparent;border:1px solid #dac294;color:#dac294}</style></head><body><div class="center"><small>MELISA FORTIN · UNIVERS TRIDIMENSIONNEL</small><h1>TATTOOmap</h1><p>Deux étapes. Un portfolio qui devient un paysage à explorer.</p><nav><a href="02_peaufine/">02 · VERSION PEAUFINÉE ↗</a><a href="01_prototype/">01 · PROTOTYPE</a></nav><p>Utilise les touches W A S D et la souris pour explorer.</p></div></body></html>
+<!doctype html>
+<html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1b1b"><meta name="description" content="Les tatouages de Melisa Fortin prennent forme dans une forêt à explorer.">
+<title>TATTOOmap — Melisa Fortin</title>
+<link rel="stylesheet" href="./02_peaufine/style.css">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.175.0/build/three.module.js"}}</script>
+<style>
+.mark{display:flex;align-items:center;justify-content:center}
+#minimap{cursor:crosshair}
+.intro-panel .album-link{display:block;margin:14px auto 0;background:none;border:0;min-width:0;padding:8px;color:var(--ivory);font:13px system-ui;text-decoration:underline;text-underline-offset:3px;letter-spacing:normal}
+#albumDialog{background:#102721;color:var(--ivory);border:1px solid #bca47e;width:min(90vw,560px);max-height:82vh;padding:24px}
+#albumDialog::backdrop{background:#03100ed9}#albumDialog h2{margin:0 40px 18px 0;font:28px Georgia,serif}
+#albumList{display:grid;gap:4px}#albumList a{color:#eadabc;padding:6px}#albumList a:hover{background:#294339}
+</style>
+</head><body>
+<canvas id="world" aria-label="Promenade tridimensionnelle parmi les œuvres"></canvas>
+<div class="grain"></div><div id="vignette"></div>
+<header class="topbar">
+  <div class="brand"><div class="mark">M<span>·</span>F</div><div class="brandtext"><span>ATELIER IMMERSIF</span><strong>MELISA FORTIN</strong></div></div>
+  <div class="live"><span class="status-dot"></span><span>FORÊT DES TATOUAGES</span></div>
+  <div class="top-actions"><button id="helpBtn" title="Commandes" class="icon-btn">?</button><button id="fullscreen" class="icon-btn" title="Plein écran">⛶</button></div>
+</header>
+<div class="side-left">
+  <div class="eyebrow"><span class="tiny-line"></span> LA CARTE DES TATOUAGES</div>
+  <h1>TATTOO<br><em>map</em></h1>
+  <p class="subtitle">Quatre tatouages prennent forme dans la forêt. Approchez-vous pour découvrir leur histoire.</p>
+  <div class="stat-row"><div><b id="totalCount">4</b><small>TATOUAGES</small></div><div class="sep"></div><div><b id="visibleCount">0</b><small>À PROXIMITÉ</small></div><div class="sep"></div><div><b id="fps">—</b><small>FPS</small></div></div>
+  <div class="biomes"><span class="label">CHOISIR UN PAYSAGE</span><button class="biome active" data-biome="forest"><span class="biome-no">01</span><span>Forêt des encres</span><span class="biome-arrow">↗</span></button><button class="biome" data-biome="garden"><span class="biome-no">02</span><span>Jardin botanique</span><span class="biome-arrow">↗</span></button><button class="biome" data-biome="night"><span class="biome-no">03</span><span>Crépuscule mystique</span><span class="biome-arrow">↗</span></button></div>
+</div>
+<div class="side-right"><div class="searchcard"><label for="search">CHERCHER UN TATOUAGE <span id="searchCount"></span></label><div class="searchline"><span>⌕</span><input id="search" placeholder="Animal, fleurs, dragon..." autocomplete="off"/></div><div id="results" class="results" hidden></div></div><div class="mapcard"><div class="mapheading"><span>CHOISIR UN POINT</span><span class="maplegend">● VOUS</span></div><canvas id="minimap" width="230" height="176" title="Choisir un motif sur la carte" aria-label="Motifs du voisinage. La liste des tatouages propose aussi chaque destination au clavier."></canvas><div class="mapbottom"><span id="biomeLabel">FORÊT DES ENCRES</span><span id="coords">X 0 · Z 0</span></div></div></div>
+<div id="aim"><div class="cross1"></div><div class="cross2"></div></div><div id="interaction" class="interaction" hidden><span>✦</span> <strong>APPUYER SUR E</strong> <span id="nearTitle"></span></div>
+<div class="bottomline"><span>W A S D <i>SE DÉPLACER</i></span><span>SOURIS <i>REGARDER</i></span><span>MAJ <i>COURIR</i></span><span>E <i>EXAMINER</i></span><span>ÉCHAP <i>LIBÉRER</i></span><button id="catalogBtn" aria-controls="results">LISTE DES TATOUAGES</button><button id="importBtn" title="Conserver un catalogue pour une prochaine étape">＋ IMPORTER</button><input id="importInput" type="file" accept=".json,application/json" hidden /></div>
+<div id="mobileControls" hidden><div id="joystick"><div id="knob"></div></div><div id="mobileActions"><button id="mobileLook">GLISSER POUR REGARDER</button><button id="mobileInspect">EXAMINER ✦</button></div></div>
+<div id="intro" class="intro"><div class="intro-panel">
+  <div class="intro-tag">MELISA FORTIN</div>
+  <h2>La forêt des<br><i>tatouages.</i></h2>
+  <p id="introCopy">Une première exploration de quatre tatouages, interprétés en volume et en mouvement. Chaque création vous mène à sa photographie originale.</p>
+  <button id="enter" disabled>ENTRER DANS LA FORÊT <span>↗</span></button>
+  <button class="album-link" id="openAlbum">Parcourir les photos</button>
+</div></div>
+<dialog id="albumDialog" aria-labelledby="albumTitle"><form method="dialog"><button class="close" aria-label="Fermer">✕</button></form><h2 id="albumTitle">Les tatouages</h2><div id="albumList"></div></dialog>
+<div id="details" class="modal" hidden><div class="modal-dim" id="closeDim"></div><article class="detail-sheet"><button class="close" id="closeDetails" title="Fermer">✕</button><div class="detail-photo-wrap"><img id="detailPhoto" alt="Photographie d'un tatouage" /></div><div class="detail-text"><span class="detail-eyebrow">TÉLÉVERSÉ EN <span id="detailYear">2026</span></span><h2 id="detailTitle">Œuvre</h2><p id="detailDescription"></p><div id="detailCategory" class="tag"></div><a id="detailSource" target="_blank" rel="noopener noreferrer">VOIR SUR LE SITE ORIGINAL ↗</a></div></article></div>
+<div id="help" class="modal" hidden><div class="modal-dim" id="helpDim"></div><article class="help-sheet"><button class="close" id="closeHelp">✕</button><span class="detail-eyebrow">GUIDE D'EXPLORATION</span><h2>Commandes</h2><p>Cliquez dans le monde pour capturer la souris. Avancez avec <b>W A S D</b>, regardez avec la souris, courez avec <b>MAJ</b>. Visez un animal, une fleur ou une sculpture. Cliquez ou appuyez sur <b>E</b> pour voir le tatouage correspondant. <b>ÉCHAP</b> libère la souris.</p><p>Sur téléphone, utilisez le joystick en bas à gauche et glissez du doigt sur la scène pour regarder autour de vous.</p><p>Choisissez un point sur la mini-carte ou un nom dans la liste des tatouages pour rejoindre ce motif.</p><button class="subtle" id="helpOkay">COMPRIS</button></article></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script type="module">
+const openAlbum = document.querySelector('#openAlbum');
+const album = document.querySelector('#albumDialog');
+openAlbum.onclick = async () => {
+  album.showModal();
+  const list = document.querySelector('#albumList');
+  if (list.childElementCount) return;
+  list.textContent = 'Chargement des tatouages…';
+  try {
+    const { tattooWorks } = await import('./assets/tattoos.js');
+    const prototypeIds = new Set(['wix-upload-2026-035', 'wix-upload-2026-062', 'wix-upload-2025-027', 'wix-upload-2026-065']);
+    list.replaceChildren(...tattooWorks.filter(work => prototypeIds.has(work.id)).map(work => {
+      const link = document.createElement('a');
+      link.href = work.image;
+      link.textContent = work.title;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      return link;
+    }));
+  } catch {
+    list.textContent = 'Le catalogue est indisponible. Rechargez la page pour réessayer.';
+  }
+};
+import('./02_peaufine/app.js').catch(error => {
+  console.error(error);
+  document.querySelector('#introCopy').textContent = 'La forêt 3D ne peut pas s’afficher dans ce navigateur. Vous pouvez parcourir les photos des tatouages.';
+  document.querySelector('#enter').hidden = true;
+});
+</script>
+<noscript>Activez JavaScript pour explorer les tatouages.</noscript>
+</body></html>
