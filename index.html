@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="fr"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0b1b1b"><meta name="description" content="Les tatouages de Melisa Fortin prennent forme dans une forêt à explorer.">
+<meta name="theme-color" content="#161619"><meta name="description" content="Les tatouages de Melisa Fortin prennent forme dans une forêt à explorer.">
 <title>TATTOOmap — Melisa Fortin</title>
 <link rel="stylesheet" href="./02_peaufine/style.css">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.175.0/build/three.module.js"}}</script>
@@ -9,15 +9,15 @@
 .mark{display:flex;align-items:center;justify-content:center}
 #minimap{cursor:crosshair}
 .intro-panel .album-link{display:block;margin:14px auto 0;background:none;border:0;min-width:0;padding:8px;color:var(--ivory);font:13px system-ui;text-decoration:underline;text-underline-offset:3px;letter-spacing:normal}
-#albumDialog{background:#102721;color:var(--ivory);border:1px solid #bca47e;width:min(90vw,560px);max-height:82vh;padding:24px}
-#albumDialog::backdrop{background:#03100ed9}#albumDialog h2{margin:0 40px 18px 0;font:28px Georgia,serif}
-#albumList{display:grid;gap:4px}#albumList a{color:#eadabc;padding:6px}#albumList a:hover{background:#294339}
+#albumDialog{background:#202024;color:var(--ivory);border:1px solid #bca47e;width:min(90vw,560px);max-height:82vh;padding:24px}
+#albumDialog::backdrop{background:#08080bd9}#albumDialog h2{margin:0 40px 18px 0;font:28px Georgia,serif}
+#albumList{display:grid;gap:4px}#albumList a{color:#eadabc;padding:6px}#albumList a:hover{background:#39383b}
 </style>
 </head><body>
 <canvas id="world" aria-label="Promenade tridimensionnelle parmi les œuvres"></canvas>
 <div class="grain"></div><div id="vignette"></div>
 <header class="topbar">
-  <div class="brand"><div class="mark">M<span>·</span>F</div><div class="brandtext"><span>ATELIER IMMERSIF</span><strong>MELISA FORTIN</strong></div></div>
+  <div class="brand"><div class="mark"><img src="./assets/melisa-fortin-logo.png" alt="Logo Melisafortintattoo"></div><div class="brandtext"><span>ATELIER IMMERSIF</span><strong>Melisafortintattoo</strong></div></div>
   <div class="live"><span class="status-dot"></span><span>FORÊT DES TATOUAGES</span></div>
   <div class="top-actions"><button id="helpBtn" title="Commandes" class="icon-btn">?</button><button id="fullscreen" class="icon-btn" title="Plein écran">⛶</button></div>
 </header>
@@ -26,7 +26,7 @@
   <h1>TATTOO<br><em>map</em></h1>
   <p class="subtitle">Les tatouages des archives prennent forme dans la forêt. Approchez-vous pour découvrir leurs photographies.</p>
   <div class="stat-row"><div><b id="totalCount">28</b><small>TATOUAGES</small></div><div class="sep"></div><div><b id="visibleCount">0</b><small>À PROXIMITÉ</small></div><div class="sep"></div><div><b id="fps">—</b><small>FPS</small></div></div>
-  <div class="biomes"><span class="label">CHOISIR UN PAYSAGE</span><button class="biome active" data-biome="forest"><span class="biome-no">01</span><span>Forêt des encres</span><span class="biome-arrow">↗</span></button><button class="biome" data-biome="garden"><span class="biome-no">02</span><span>Jardin botanique</span><span class="biome-arrow">↗</span></button><button class="biome" data-biome="night"><span class="biome-no">03</span><span>Crépuscule mystique</span><span class="biome-arrow">↗</span></button></div>
+  <div class="biomes"><span class="label">SE RENDRE DANS UN SECTEUR</span><button class="biome active" data-biome="forest"><span class="biome-no">01</span><span>Forêt des encres</span><span class="biome-arrow">↗</span></button><button class="biome" data-biome="garden"><span class="biome-no">02</span><span>Jardin botanique</span><span class="biome-arrow">↗</span></button><button class="biome" data-biome="night"><span class="biome-no">03</span><span>Crépuscule mystique</span><span class="biome-arrow">↗</span></button></div>
 </div>
 <div class="side-right"><div class="searchcard"><label for="search">CHERCHER UN TATOUAGE <span id="searchCount"></span></label><div class="searchline"><span>⌕</span><input id="search" placeholder="Animal, fleurs, dragon..." autocomplete="off"/></div><div id="results" class="results" hidden></div></div><div class="mapcard"><div class="mapheading"><span>CHOISIR UN POINT</span><span class="maplegend">● VOUS</span></div><canvas id="minimap" width="230" height="176" title="Choisir un motif sur la carte" aria-label="Motifs du voisinage. La liste des tatouages propose aussi chaque destination au clavier."></canvas><div class="mapbottom"><span id="biomeLabel">FORÊT DES ENCRES</span><span id="coords">X 0 · Z 0</span></div></div></div>
 <div id="aim"><div class="cross1"></div><div class="cross2"></div></div><div id="interaction" class="interaction" hidden><span>✦</span> <strong>APPUYER SUR E</strong> <span id="nearTitle"></span></div>

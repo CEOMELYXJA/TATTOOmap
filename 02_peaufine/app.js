@@ -26,8 +26,8 @@ const v3 = (x=0,y=0,z=0) => new THREE.Vector3(x,y,z);
 const palette = { forest: '#638a68', garden: '#8b9b68', night: '#575a78' };
 const biomes = [
   {id:'forest',name:'FORÊT DES ENCRES',x:0,z:0,color:'#6a9d7d'},
-  {id:'garden',name:'JARDIN BOTANIQUE',x:160,z:65,color:'#c2ab70'},
-  {id:'night',name:'CRÉPUSCULE MYSTIQUE',x:-160,z:65,color:'#b3a3d3'}
+  {id:'garden',name:'JARDIN BOTANIQUE',x:45,z:8,color:'#c2ab70'},
+  {id:'night',name:'CRÉPUSCULE MYSTIQUE',x:-45,z:8,color:'#b3a3d3'}
 ];
 // The year comes from the Wix upload record, not the date the tattoo was made.
 // The complete catalogue remains available for future additions.
@@ -42,7 +42,7 @@ const activeMotifs = new Map();
 const ray = new THREE.Raycaster();
 const aim = new THREE.Vector2();
 const focus = new THREE.Vector3();
-const mapScale = 1.08;
+const mapScale = 0.75;
 const prefersReducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 let menuOpen = false;
 
@@ -61,14 +61,14 @@ function addSky(){
   const moon=new THREE.Mesh(new THREE.SphereGeometry(18,32,20),new THREE.MeshBasicMaterial({color:0xf2e7c3}));moon.position.set(-230,180,-400);skyGroup.add(moon);
 }
 function makeGround(){
-  const seg=150,size=820;const geo=new THREE.PlaneGeometry(size,size,seg,seg);geo.rotateX(-Math.PI/2);
+  const seg=110,size=240;const geo=new THREE.PlaneGeometry(size,size,seg,seg);geo.rotateX(-Math.PI/2);
   const pos=geo.attributes.position, colors=[];const c=new THREE.Color();
   const biomeColors=biomes.map(b=>new THREE.Color(palette[b.id]));
   for(let i=0;i<pos.count;i++){
     const x=pos.getX(i),z=pos.getZ(i);pos.setY(i,terrain(x,z));
     // Blend the three soils instead of drawing hard biome borders.
     c.setRGB(0,0,0);let total=0;
-    biomes.forEach((b,j)=>{const weight=1/Math.pow(4000+(x-b.x)**2+(z-b.z)**2,2);c.r+=biomeColors[j].r*weight;c.g+=biomeColors[j].g*weight;c.b+=biomeColors[j].b*weight;total+=weight});
+    biomes.forEach((b,j)=>{const weight=1/Math.pow(600+(x-b.x)**2+(z-b.z)**2,2);c.r+=biomeColors[j].r*weight;c.g+=biomeColors[j].g*weight;c.b+=biomeColors[j].b*weight;total+=weight});
     c.multiplyScalar(1/total);const d=Math.sin(x*.13)*Math.sin(z*.19)*.043;c.offsetHSL(0,0,d);colors.push(c.r,c.g,c.b)
   }
   pos.needsUpdate=true;geo.computeVertexNormals();geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
@@ -78,12 +78,13 @@ function placeInstanced(geometry,material,count,positionFn){const m=new THREE.In
 function trees(){
   const trunks=new THREE.CylinderGeometry(.17,.36,1,7);trunks.translate(0,.5,0);
   const crowns=new THREE.ConeGeometry(1.7,5,8);crowns.translate(0,2.55,0);
-  const treePositions=[];for(let k=0;k<3;k++){const b=biomes[k];const n=k===0?360: k===1?220:300;for(let i=0;i<n;i++){
-    const a=rand()*6.283, r=27+Math.sqrt(rand())*165;
+  const treePositions=[];for(let k=0;k<3;k++){const b=biomes[k];const n=k===0?220:180;for(let i=0;i<n;i++){
+    const a=rand()*6.283, r=13+Math.sqrt(rand())*54;
     const x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r;
+    if (biomeAt(x,z)!==b || Math.abs(x)>90 || Math.abs(z)>85) continue;
     // Reserve each central gallery and arrival point for a clear view.
     if (biomes.some(center => Math.hypot(x-center.x,z-center.z) < 14)) continue;
-    if (positions.some(p => Math.hypot(x-p.x,z-p.z) < 10)) continue;
+    if (positions.some(p => Math.hypot(x-p.x,z-p.z) < 10 || Math.hypot(x-p.entryX,z-p.entryZ) < 8)) continue;
     if(Math.abs(x)<7&&z<40&&z>-70)continue;
     if(Math.abs(x-(b.x+20))<5&&Math.abs(z-(b.z+20))<5)continue;
     treePositions.push({x,y:terrain(x,z),z,biome:k,sx: .7+rand()*.72,sy:5+rand()*5,sz:.7+rand()*.72,rot:rand()*6.28});
@@ -102,12 +103,12 @@ function trees(){
   const flowerGeo=new THREE.IcosahedronGeometry(.12,0);
   const paletteFlowers=[0xe2c48d,0xe7d9ca,0x9fb2c6,0xe3aba3];
   for(let colorIndex=0;colorIndex<4;colorIndex++){
-    const floral=[];for(let i=0;i<390;i++){const b=biomes[(i+colorIndex)%3],a=rand()*6.28,r=15+Math.sqrt(rand())*130,x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r;
+    const floral=[];for(let i=0;i<250;i++){const b=biomes[(i+colorIndex)%3],a=rand()*6.28,r=8+Math.sqrt(rand())*48,x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r;
       floral.push({x,y:terrain(x,z)+.20+rand()*.24,z,sx:.8+rand(),sy:1+rand(),sz:1})}
     placeInstanced(flowerGeo,new THREE.MeshStandardMaterial({color:paletteFlowers[colorIndex],emissive:paletteFlowers[colorIndex],emissiveIntensity:.18}),floral.length,i=>floral[i]);
   }
   const blades=new THREE.ConeGeometry(.10,1.0,3);blades.translate(0,.4,0);
-  const grass=[];for(let i=0;i<1300;i++){const b=biomes[i%3],a=rand()*6.28,r=10+Math.sqrt(rand())*145,x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r;grass.push({x,y:terrain(x,z),z,sx:.4+rand(),sy:.45+rand()*.8,sz:1,rot:rand()*6.28})}
+  const grass=[];for(let i=0;i<1000;i++){const b=biomes[i%3],a=rand()*6.28,r=8+Math.sqrt(rand())*52,x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r;grass.push({x,y:terrain(x,z),z,sx:.4+rand(),sy:.45+rand()*.8,sz:1,rot:rand()*6.28})}
   placeInstanced(blades,new THREE.MeshStandardMaterial({color:0x739a6f,side:THREE.DoubleSide,roughness:1}),grass.length,i=>grass[i]);
 }
 // Quiet paths and clustered understory give the landscapes depth without individual draw calls.
@@ -119,16 +120,18 @@ function landscapeDetails(){
   for(let k=0;k<3;k++){
     const b=biomes[k],rocks=[],shrubs=[];
     for(let i=0;i<145;i++){
-      const a=rand()*Math.PI*2,r=21+Math.sqrt(rand())*135;
+      const a=rand()*Math.PI*2,r=12+Math.sqrt(rand())*48;
       const x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r;
-      if (positions.some(p => Math.hypot(x-p.x,z-p.z) < 5)) continue;
+      if (biomeAt(x,z)!==b || Math.abs(x)>90 || Math.abs(z)>85) continue;
+      if (positions.some(p => Math.hypot(x-p.x,z-p.z) < 5 || Math.hypot(x-p.entryX,z-p.entryZ) < 4)) continue;
       const q=.35+rand()*1.15;
       rocks.push({x,y:terrain(x,z)+q*.20,z,sx:q*(1+rand()),sy:q*.5,sz:q,rot:rand()*6.28});
     }
     for(let i=0;i<245;i++){
-      const a=rand()*Math.PI*2,r=24+Math.sqrt(rand())*145;
+      const a=rand()*Math.PI*2,r=12+Math.sqrt(rand())*48;
       const x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r,q=.45+rand()*.8;
-      if (positions.some(p => Math.hypot(x-p.x,z-p.z) < 5)) continue;
+      if (biomeAt(x,z)!==b || Math.abs(x)>90 || Math.abs(z)>85) continue;
+      if (positions.some(p => Math.hypot(x-p.x,z-p.z) < 5 || Math.hypot(x-p.entryX,z-p.entryZ) < 4)) continue;
       shrubs.push({x,y:terrain(x,z)+q*.55,z,sx:q*1.35,sy:q*.7,sz:q,rot:rand()*6.28});
     }
     placeInstanced(rockGeo,new THREE.MeshStandardMaterial({color:rockColors[k],roughness:1,flatShading:true}),rocks.length,i=>rocks[i]);
@@ -171,17 +174,17 @@ function landmarks(){
     const baseG=new THREE.CylinderGeometry(.56,.7,7,10);
     for(const xx of [-6,6]){const post=new THREE.Mesh(baseG,new THREE.MeshStandardMaterial({color:0x394e45,roughness:.9}));post.position.set(b.x+xx,3.5+terrain(b.x+xx,b.z),b.z);scene.add(post)}
     // Curving illuminated trail is a geometry, not a static image.
-    const pts=[];for(let i=0;i<=160;i++){const t=i/160*Math.PI*7,r=8+i/160*130,x=b.x+Math.cos(t)*r,z=b.z+Math.sin(t)*r;pts.push(v3(x,terrain(x,z)+.08,z))}
+    const pts=[];for(let i=0;i<=160;i++){const t=i/160*Math.PI*5,r=7+i/160*35,x=b.x+Math.cos(t)*r,z=b.z+Math.sin(t)*r;pts.push(v3(x,terrain(x,z)+.08,z))}
     const curve=new THREE.CatmullRomCurve3(pts);const track=new THREE.Mesh(new THREE.TubeGeometry(curve,520,.055,3,false),new THREE.MeshBasicMaterial({color:b.color,transparent:true,opacity:.64}));scene.add(track);
   }
   // Water garden pond, with offset glints.
-  const pool=new THREE.Mesh(new THREE.CircleGeometry(15,64),new THREE.MeshStandardMaterial({color:0x447b82,metalness:.65,roughness:.23,transparent:true,opacity:.85,side:THREE.DoubleSide}));pool.rotation.x=-Math.PI/2;pool.scale.y=.55;pool.position.set(193,terrain(193,102)+.13,102);scene.add(pool);
+  const pool=new THREE.Mesh(new THREE.CircleGeometry(8,48),new THREE.MeshStandardMaterial({color:0x447b82,metalness:.65,roughness:.23,transparent:true,opacity:.85,side:THREE.DoubleSide}));pool.rotation.x=-Math.PI/2;pool.scale.y=.55;pool.position.set(56,terrain(56,30)+.13,30);scene.add(pool);
   // Moonglow under darker sector.
-  const lamp=new THREE.PointLight(0x9887bd,70,85);lamp.position.set(-160,15,65);scene.add(lamp);
-  const lamp2=new THREE.PointLight(0xd9af84,50,65);lamp2.position.set(160,9,65);scene.add(lamp2);
+  const lamp=new THREE.PointLight(0x9887bd,70,55);lamp.position.set(-45,15,8);scene.add(lamp);
+  const lamp2=new THREE.PointLight(0xd9af84,50,45);lamp2.position.set(45,9,8);scene.add(lamp2);
 }
 const flecks=[];let fleckGeo;
-function makeFireflies(){const particles=260;const p=new Float32Array(particles*3);for(let i=0;i<particles;i++){const b=biomes[i%3],a=rand()*6.283,r=10+rand()*105;const x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r,y=2+rand()*7;flecks.push({x,y,z,offset:rand()*6.28});p[i*3]=x;p[i*3+1]=y;p[i*3+2]=z}fleckGeo=new THREE.BufferGeometry();fleckGeo.setAttribute('position',new THREE.BufferAttribute(p,3));scene.add(new THREE.Points(fleckGeo,new THREE.PointsMaterial({color:0xefdc9a,size:.26,transparent:true,opacity:.8,depthWrite:false})))}
+function makeFireflies(){const particles=260;const p=new Float32Array(particles*3);for(let i=0;i<particles;i++){const b=biomes[i%3],a=rand()*6.283,r=8+rand()*48;const x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r,y=terrain(x,z)+2+rand()*7;flecks.push({x,y,z,offset:rand()*6.28});p[i*3]=x;p[i*3+1]=y;p[i*3+2]=z}fleckGeo=new THREE.BufferGeometry();fleckGeo.setAttribute('position',new THREE.BufferAttribute(p,3));scene.add(new THREE.Points(fleckGeo,new THREE.PointsMaterial({color:0xefdc9a,size:.26,transparent:true,opacity:.8,depthWrite:false})))}
 const botanical = new Set(['rose', 'flower', 'flowers', 'blossom', 'blossomBranch', 'floweringBranch', 'lotus', 'sunflower', 'palm', 'branch', 'redRose']);
 const aquatic = new Set(['fish', 'betta', 'anglerfish', 'seahorse', 'swordfish']);
 const wild = new Set(['tiger', 'lion', 'gorilla', 'cat', 'dog', 'pug', 'bear', 'cub', 'teddy', 'bird', 'raptor', 'eagle', 'owl', 'butterfly', 'moth', 'snake', 'turtle']);
@@ -195,25 +198,29 @@ function habitat(work) {
 
 function createPositions() {
   const counts = new Map();
+  const placed = [];
   positions = works.map((work, index) => {
     const biome = habitat(work);
     const ordinal = counts.get(biome.id) || 0;
     counts.set(biome.id, ordinal + 1);
-    // Place works on concentric paths so adjacent compositions have room to
-    // animate and the approach used by search stays clear of other motifs.
-    let slot = ordinal;
-    let ring = 0;
-    let capacity = 8;
-    while (slot >= capacity) {
-      slot -= capacity;
-      ring++;
-      capacity = 8 + ring * 4;
+    // Give every work and its approach space, even where the sectors meet.
+    for (let attempt = 0; attempt < 600; attempt++) {
+      const step = ordinal + attempt;
+      const radius = 15 + Math.sqrt(step) * 1.9;
+      const angle = step * 2.399963 + biomes.indexOf(biome) * 0.7;
+      const x = biome.x + Math.cos(angle) * radius;
+      const z = biome.z + Math.sin(angle) * radius;
+      const entryX = x - Math.cos(angle) * 6.5;
+      const entryZ = z - Math.sin(angle) * 6.5;
+      if (biomeAt(x,z) !== biome || Math.abs(x)>80 || Math.abs(z)>80) continue;
+      if (placed.some(p => Math.hypot(x-p.x,z-p.z)<9 ||
+          Math.hypot(entryX-p.x,entryZ-p.z)<5 ||
+          Math.hypot(x-p.entryX,z-p.entryZ)<5)) continue;
+      const point = {index, x, z, y:terrain(x,z), biome:biome.id, angle, entryX, entryZ};
+      placed.push(point);
+      return point;
     }
-    const radius = 24 + ring * 18;
-    const angle = slot * 2 * Math.PI / capacity + biomes.indexOf(biome) * 0.7 + ring * 0.26;
-    const x = biome.x + Math.cos(angle) * radius;
-    const z = biome.z + Math.sin(angle) * radius;
-    return {index, x, z, y:terrain(x,z), biome:biome.id, angle};
+    throw new Error('Impossible de placer toutes les œuvres dans la carte.');
   });
 }
 
@@ -469,7 +476,7 @@ let frameCounter=0,fpsLast=0,worldLast=0,miniLast=0,interactionLast=0;
 function animate(){requestAnimationFrame(animate);const delta=Math.min(clock.getDelta(),.065),t=clock.elapsedTime;
   const modal=!$('#details').hidden||!$('#help').hidden;
   let f=0,r=0;if(active&&!modal&&document.activeElement!==$('#search')){f=(keys.KeyW||keys.KeyZ||keys.ArrowUp?1:0)-(keys.KeyS||keys.ArrowDown?1:0)+mobileF;r=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.KeyQ||keys.ArrowLeft?1:0)+mobileR}
-  const velocity=v3(r,0,-f);if(velocity.lengthSq()){velocity.normalize().applyAxisAngle(UP,yaw).multiplyScalar((keys.ShiftLeft||keys.ShiftRight?12.4:6.2)*delta);camX=THREE.MathUtils.clamp(camX+velocity.x,-350,350);camZ=THREE.MathUtils.clamp(camZ+velocity.z,-350,350);bob+=delta*11}else{bob+=delta*3}
+  const velocity=v3(r,0,-f);if(velocity.lengthSq()){velocity.normalize().applyAxisAngle(UP,yaw).multiplyScalar((keys.ShiftLeft||keys.ShiftRight?12.4:6.2)*delta);camX=THREE.MathUtils.clamp(camX+velocity.x,-90,90);camZ=THREE.MathUtils.clamp(camZ+velocity.z,-90,90);bob+=delta*11}else{bob+=delta*3}
   camera.position.set(camX,terrain(camX,camZ)+1.85+(velocity.lengthSq()?.034*Math.sin(bob):0),camZ);camera.rotation.set(pitch,yaw,0,'YXZ');
   skyGroup.position.copy(camera.position);updateAtmosphere(delta);
   animateDecor(t);renderer.render(scene,camera);
