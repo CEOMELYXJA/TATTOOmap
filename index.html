@@ -24,8 +24,8 @@
 <div class="side-left">
   <div class="eyebrow"><span class="tiny-line"></span> LA CARTE DES TATOUAGES</div>
   <h1>TATTOO<br><em>map</em></h1>
-  <p class="subtitle">Quatre tatouages prennent forme dans la forêt. Approchez-vous pour découvrir leur histoire.</p>
-  <div class="stat-row"><div><b id="totalCount">4</b><small>TATOUAGES</small></div><div class="sep"></div><div><b id="visibleCount">0</b><small>À PROXIMITÉ</small></div><div class="sep"></div><div><b id="fps">—</b><small>FPS</small></div></div>
+  <p class="subtitle">Les tatouages des archives prennent forme dans la forêt. Approchez-vous pour découvrir leurs photographies.</p>
+  <div class="stat-row"><div><b id="totalCount">28</b><small>TATOUAGES</small></div><div class="sep"></div><div><b id="visibleCount">0</b><small>À PROXIMITÉ</small></div><div class="sep"></div><div><b id="fps">—</b><small>FPS</small></div></div>
   <div class="biomes"><span class="label">CHOISIR UN PAYSAGE</span><button class="biome active" data-biome="forest"><span class="biome-no">01</span><span>Forêt des encres</span><span class="biome-arrow">↗</span></button><button class="biome" data-biome="garden"><span class="biome-no">02</span><span>Jardin botanique</span><span class="biome-arrow">↗</span></button><button class="biome" data-biome="night"><span class="biome-no">03</span><span>Crépuscule mystique</span><span class="biome-arrow">↗</span></button></div>
 </div>
 <div class="side-right"><div class="searchcard"><label for="search">CHERCHER UN TATOUAGE <span id="searchCount"></span></label><div class="searchline"><span>⌕</span><input id="search" placeholder="Animal, fleurs, dragon..." autocomplete="off"/></div><div id="results" class="results" hidden></div></div><div class="mapcard"><div class="mapheading"><span>CHOISIR UN POINT</span><span class="maplegend">● VOUS</span></div><canvas id="minimap" width="230" height="176" title="Choisir un motif sur la carte" aria-label="Motifs du voisinage. La liste des tatouages propose aussi chaque destination au clavier."></canvas><div class="mapbottom"><span id="biomeLabel">FORÊT DES ENCRES</span><span id="coords">X 0 · Z 0</span></div></div></div>
@@ -35,7 +35,7 @@
 <div id="intro" class="intro"><div class="intro-panel">
   <div class="intro-tag">MELISA FORTIN</div>
   <h2>La forêt des<br><i>tatouages.</i></h2>
-  <p id="introCopy">Une première exploration de quatre tatouages, interprétés en volume et en mouvement. Chaque création vous mène à sa photographie originale.</p>
+  <p id="introCopy">Explorez les tatouages des archives, interprétés en volume et en mouvement. Chaque création vous mène à sa photographie originale.</p>
   <button id="enter" disabled>ENTRER DANS LA FORÊT <span>↗</span></button>
   <button class="album-link" id="openAlbum">Parcourir les photos</button>
 </div></div>
@@ -53,8 +53,7 @@ openAlbum.onclick = async () => {
   list.textContent = 'Chargement des tatouages…';
   try {
     const { tattooWorks } = await import('./assets/tattoos.js');
-    const prototypeIds = new Set(['wix-upload-2026-035', 'wix-upload-2026-062', 'wix-upload-2025-027', 'wix-upload-2026-065']);
-    list.replaceChildren(...tattooWorks.filter(work => prototypeIds.has(work.id)).map(work => {
+    list.replaceChildren(...tattooWorks.filter(work => work.uploadYear === 2026 || work.id === 'wix-upload-2025-027').map(work => {
       const link = document.createElement('a');
       link.href = work.image;
       link.textContent = work.title;
