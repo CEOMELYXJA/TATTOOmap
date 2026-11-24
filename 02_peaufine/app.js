@@ -42,7 +42,8 @@ const activeMotifs = new Map();
 const ray = new THREE.Raycaster();
 const aim = new THREE.Vector2();
 const focus = new THREE.Vector3();
-const mapScale = 0.75;
+// Fixed world coordinates keep every artwork visible as the visitor moves.
+const mapScale = Math.min((230 - 24) / 180, (176 - 24) / 180);
 const prefersReducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 let menuOpen = false;
 
@@ -294,26 +295,21 @@ function visitMotif(point) {
   camera.rotation.set(pitch, yaw, 0, 'YXZ');
   camera.updateMatrixWorld();
   interactionArt = getNearest();
-  updateBiome();
+  updateLocation();
   drawMiniMap();
 }
 
-function goBiome(id) {
-  const point = positions.find(p => p.biome === id);
-  visitMotif(point);
-  showToast(biomes.find(b => b.id === id).name);
+function updateLocation(){
+  $('#coords').textContent=`X ${Math.round(camX)} · Z ${Math.round(camZ)}`;
 }
-
-function updateBiome(){const b=biomeAt(camX,camZ);$('#biomeLabel').textContent=b.name;$('#coords').textContent=`X ${Math.round(camX)} · Z ${Math.round(camZ)}`;document.querySelectorAll('.biome').forEach(btn=>btn.classList.toggle('active',btn.dataset.biome===b.id))}
 function drawMiniMap(){
   const can=$('#minimap'),ctx=can.getContext('2d'),w=can.width,h=can.height;
   ctx.clearRect(0,0,w,h);ctx.fillStyle='rgba(7,26,24,.65)';ctx.fillRect(0,0,w,h);
   for(let x=0;x<=w;x+=23){ctx.strokeStyle='rgba(183,200,176,.09)';ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}
   for(let y=0;y<=h;y+=22){ctx.strokeStyle='rgba(183,200,176,.09)';ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
-  const scale=mapScale,tx=x=>w/2+(x-camX)*scale,ty=z=>h/2+(z-camZ)*scale;
-  for(const b of biomes){const x=tx(b.x),y=ty(b.z);ctx.strokeStyle=b.color;ctx.globalAlpha=.36;ctx.beginPath();ctx.arc(x,y,24,0,6.283);ctx.stroke();ctx.globalAlpha=1;ctx.font='9px sans-serif';ctx.fillStyle=b.color;ctx.fillText(b.name.split(' ')[0],x-14,y-29)}
+  const scale=mapScale,tx=x=>w/2+x*scale,ty=z=>h/2+z*scale;
   for(let i=0;i<positions.length;i++){const p=positions[i],x=tx(p.x),y=ty(p.z);if(x<0||x>w||y<0||y>h)continue;ctx.fillStyle='rgba(233,215,164,.82)';ctx.beginPath();ctx.arc(x,y,2.4,0,Math.PI*2);ctx.fill()}
-  ctx.save();ctx.translate(w/2,h/2);ctx.rotate(-yaw);ctx.fillStyle='#d0efae';ctx.beginPath();ctx.moveTo(0,-9);ctx.lineTo(-6,6);ctx.lineTo(6,6);ctx.closePath();ctx.fill();ctx.restore();
+  ctx.save();ctx.translate(tx(camX),ty(camZ));ctx.rotate(-yaw);ctx.fillStyle='#d0efae';ctx.beginPath();ctx.moveTo(0,-7);ctx.lineTo(-5,5);ctx.lineTo(5,5);ctx.closePath();ctx.fill();ctx.restore();
 }
 function folded(text) {
   return String(text || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('fr');
@@ -353,8 +349,8 @@ function setupMap() {
   const map = $('#minimap');
   map.onclick = event => {
     const bounds = map.getBoundingClientRect();
-    const x = camX + ((event.clientX - bounds.left) / bounds.width - 0.5) * map.width / mapScale;
-    const z = camZ + ((event.clientY - bounds.top) / bounds.height - 0.5) * map.height / mapScale;
+    const x = ((event.clientX - bounds.left) / bounds.width - 0.5) * map.width / mapScale;
+    const z = ((event.clientY - bounds.top) / bounds.height - 0.5) * map.height / mapScale;
     let target;
     let threshold = 9 / mapScale;
     for (const point of positions) {
@@ -435,13 +431,10 @@ function setupEvents(){
     if (!active || !$('#details').hidden || !$('#help').hidden || e.target instanceof HTMLInputElement) return;
     keys[e.code]=true;
     if(e.code==='KeyE'&&active&&$('#details').hidden&&$('#help').hidden)inspect(getNearest());
-    if(e.code==='Digit1')goBiome('forest');if(e.code==='Digit2')goBiome('garden');if(e.code==='Digit3')goBiome('night');
-
   });
   document.addEventListener('keyup',e=>{keys[e.code]=false});
   const stopMovement=()=>{keys={};mobileF=mobileR=0;$('#knob').style.transform='translate(0,0)'};
   addEventListener('blur',stopMovement);document.addEventListener('visibilitychange',()=>{if(document.hidden)stopMovement()});
-  document.querySelectorAll('.biome').forEach(b=>b.onclick=()=>goBiome(b.dataset.biome));
   $('#search').addEventListener('input',searchResults);
   $('#fullscreen').onclick=()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen?.();else document.exitFullscreen?.()};
   $('#helpBtn').onclick=()=>{document.exitPointerLock?.();$('#help').hidden=false};
@@ -481,7 +474,7 @@ function animate(){requestAnimationFrame(animate);const delta=Math.min(clock.get
   skyGroup.position.copy(camera.position);updateAtmosphere(delta);
   animateDecor(t);renderer.render(scene,camera);
   frameCounter++;if(t-fpsLast>1){$('#fps').textContent=String(Math.round(frameCounter/(t-fpsLast)));frameCounter=0;fpsLast=t}
-  if(t-worldLast>.42){refreshMotifs();updateBiome();worldLast=t}
+  if(t-worldLast>.42){refreshMotifs();updateLocation();worldLast=t}
   if(t-miniLast>.26){drawMiniMap();miniLast=t}
   if(t-interactionLast>.13){interactionArt=active&&!modal?getNearest():null;$('#interaction').hidden=!interactionArt;if(interactionArt)$('#nearTitle').textContent=interactionArt.title;interactionLast=t}
 }

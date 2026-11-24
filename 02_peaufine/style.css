@@ -44,3 +44,4 @@ dialog#albumDialog #albumList a:hover{background:#3a3939}
 #joystick{background:#18181abf}
 #mobileActions button{background:#202022e8}
 @media(max-width:750px){.mark{width:54px;height:39px}}
+@media(max-width:750px){.side-right{width:160px}.mapcard{display:block;padding:10px}.mapcard #minimap{margin-top:6px}.mapbottom{font-size:8px}}
