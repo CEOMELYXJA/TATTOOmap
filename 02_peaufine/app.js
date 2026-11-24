@@ -51,6 +51,20 @@ function rng(seed=312031){return ()=>{seed=(Math.imul(seed,1664525)+1013904223)>
 // Broad, walkable undulations; every object and the visitor use this same height.
 const terrain=(x,z)=> 2.2*Math.sin(x*.008)*Math.cos(z*.009)+.65*Math.sin(x*.026)*Math.cos(z*.020)+.26*Math.sin(z*.049+x*.018);
 function biomeAt(x,z){let best=biomes[0],d=Infinity;for(const b of biomes){const v=(x-b.x)**2+(z-b.z)**2;if(v<d){d=v;best=b}}return best;}
+
+// Load local, repeatable CC0 textures after the world appears. If an image is
+// unavailable, the existing material colours remain visible and usable.
+function applyTexture(material, slot, file, repeat, isColor = false) {
+  const url = new URL(`../assets/textures/${file}`, import.meta.url).href;
+  new THREE.TextureLoader().load(url, texture => {
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(...repeat);
+    texture.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+    if (isColor) texture.colorSpace = THREE.SRGBColorSpace;
+    material[slot] = texture;
+    material.needsUpdate = true;
+  }, undefined, () => {});
+}
 let skyGroup;
 function addSky(){
   skyGroup=new THREE.Group();scene.add(skyGroup);
@@ -64,7 +78,7 @@ function addSky(){
 function makeGround(){
   const seg=110,size=240;const geo=new THREE.PlaneGeometry(size,size,seg,seg);geo.rotateX(-Math.PI/2);
   const pos=geo.attributes.position, colors=[];const c=new THREE.Color();
-  const biomeColors=biomes.map(b=>new THREE.Color(palette[b.id]));
+  const biomeColors=biomes.map(b=>new THREE.Color(palette[b.id]).lerp(new THREE.Color('#e3ded1'),.58));
   for(let i=0;i<pos.count;i++){
     const x=pos.getX(i),z=pos.getZ(i);pos.setY(i,terrain(x,z));
     // Blend the three soils instead of drawing hard biome borders.
@@ -73,12 +87,16 @@ function makeGround(){
     c.multiplyScalar(1/total);const d=Math.sin(x*.13)*Math.sin(z*.19)*.043;c.offsetHSL(0,0,d);colors.push(c.r,c.g,c.b)
   }
   pos.needsUpdate=true;geo.computeVertexNormals();geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
-  scene.add(new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,metalness:0})));
+  const groundMaterial = new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,metalness:0});
+  applyTexture(groundMaterial, 'map', 'ground.jpg', [48,48], true);
+  applyTexture(groundMaterial, 'normalMap', 'ground-normal.jpg', [48,48]);
+  groundMaterial.normalScale.set(.42,.42);
+  scene.add(new THREE.Mesh(geo,groundMaterial));
 }
 function placeInstanced(geometry,material,count,positionFn){const m=new THREE.InstancedMesh(geometry,material,count);const dummy=new THREE.Object3D();for(let i=0;i<count;i++){const p=positionFn(i);dummy.position.set(p.x,p.y,p.z);dummy.scale.set(p.sx||1,p.sy||1,p.sz||1);dummy.rotation.set(0,p.rot||0,0);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix)}m.instanceMatrix.needsUpdate=true;m.frustumCulled=false;scene.add(m);return m}
 function trees(){
-  const trunks=new THREE.CylinderGeometry(.17,.36,1,7);trunks.translate(0,.5,0);
-  const crowns=new THREE.ConeGeometry(1.7,5,8);crowns.translate(0,2.55,0);
+  const trunks=new THREE.CylinderGeometry(.17,.36,1,10);trunks.translate(0,.5,0);
+  const crowns=new THREE.ConeGeometry(1.7,5,10);crowns.translate(0,2.55,0);
   const treePositions=[];for(let k=0;k<3;k++){const b=biomes[k];const n=k===0?220:180;for(let i=0;i<n;i++){
     const a=rand()*6.283, r=13+Math.sqrt(rand())*54;
     const x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r;
@@ -90,15 +108,22 @@ function trees(){
     if(Math.abs(x-(b.x+20))<5&&Math.abs(z-(b.z+20))<5)continue;
     treePositions.push({x,y:terrain(x,z),z,biome:k,sx: .7+rand()*.72,sy:5+rand()*5,sz:.7+rand()*.72,rot:rand()*6.28});
   }}
-  const tmat=new THREE.MeshStandardMaterial({color:0x4b4437,roughness:1});
+  const tmat=new THREE.MeshStandardMaterial({color:0xd8cbb7,roughness:1});
+  applyTexture(tmat, 'map', 'bark.jpg', [1,2], true);
+  applyTexture(tmat, 'normalMap', 'bark-normal.jpg', [1,2]);
+  tmat.normalScale.set(.55,.55);
   placeInstanced(trunks,tmat,treePositions.length,i=>({...treePositions[i],sx:treePositions[i].sx,sy:treePositions[i].sy,sz:treePositions[i].sz}));
-  const nightCrown=new THREE.ConeGeometry(1.8,5,7);nightCrown.translate(0,2.5,0);
-  const crownShapes=[crowns,new THREE.IcosahedronGeometry(2.3,1),nightCrown];
-  const crownColors=[0x245a47,0x72875a,0x49465f];
+  const nightCrown=new THREE.ConeGeometry(1.8,5,10);nightCrown.translate(0,2.5,0);
+  const crownShapes=[crowns,new THREE.IcosahedronGeometry(2.3,2),nightCrown];
+  const crownColors=[0x345645,0x71815b,0x4c4e5e];
   for(let k=0;k<3;k++){
     const group=treePositions.filter(p=>p.biome===k);
-    const material=new THREE.MeshStandardMaterial({color:crownColors[k],roughness:1,flatShading:true});
+    const material=new THREE.MeshStandardMaterial({color:crownColors[k],roughness:1});
     placeInstanced(crownShapes[k],material,group.length,i=>{const p=group[i];return {x:p.x,y:p.y+p.sy*(k===1?.80:.54),z:p.z,sx:p.sx*(k===1?1.2:1.45),sy:p.sy*(k===1?.18:.24),sz:p.sz*(k===1?1.2:1.45),rot:p.rot}});
+    if (k!==1) {
+      // A second, narrower tier gives conifers depth without individual meshes.
+      placeInstanced(crownShapes[k],material,group.length,i=>{const p=group[i];return {x:p.x,y:p.y+p.sy*.79,z:p.z,sx:p.sx*1.02,sy:p.sy*.17,sz:p.sz*1.02,rot:p.rot}});
+    }
   }
   // Flower meadow: one draw call per palette, not thousands of individual meshes.
   const flowerGeo=new THREE.IcosahedronGeometry(.12,0);
