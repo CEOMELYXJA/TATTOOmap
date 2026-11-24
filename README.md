@@ -1,124 +1,51 @@
-# TATTOOmap — Portfolio spatial interactif 3D
+# TATTOOmap — An interactive spatial tattoo archive
 
-Moteur Three.js, promenade immersive, galeries de photos de tatouages et médias publics Wix classés par téléversement.
+TATTOOmap is a Three.js world built around Melisa Fortin's tattoo portfolio. Explore a forest, a botanical garden and a mystical twilight landscape. Select a motif to see its source photograph and verified catalogue information.
 
-## État du catalogue
+## Current prototype
 
-L’examen visuel des 125 entrées Wix (41 téléversées en 2025 et 84 en 2026) distingue **58 images montrant des tatouages sur peau** et **67 autres médias**. Ces chiffres comptent les fichiers, pas nécessairement des œuvres uniques. Le détail par identifiant et la méthode figurent dans [le rapport de tri](docs/examen-visuel-catalogue-wix.md) et son [tableau CSV](docs/catalogue-wix-examen-visuel-2025-2026.csv). L’année indiquée est celle du téléversement, et un lien CDN accessible ne prouve ni la publication en galerie ni l’autorisation de diffusion.
+Four identified tattoos are represented by animated, three-dimensional interpretations: a tiger with flowers, a red rose, a butterfly with flowers, and skulls with flames. These are artistic interpretations of the photographs, not automatic reconstructions. The catalogue and original files are preserved so the world can grow as more works are modelled.
 
-## Mise à jour — archives Wix 2025–2026
+The reviewed inventory contains 125 Wix media files uploaded in 2025–2026. Visual review identified 58 photographs showing tattoos and 67 other media files. These counts refer to files, not necessarily distinct works. Upload dates do not establish when a tattoo was made. See the [visual review](docs/examen-visuel-catalogue-wix.md) and its [CSV](docs/catalogue-wix-examen-visuel-2025-2026.csv) for the individual records and limitations.
 
-Cette version ouvre directement la promenade 3D avec 125 images accessibles par leurs liens Wix : **41 images téléversées en 2025** et **84 images téléversées en 2026**. Douze photos identifiées dans la galerie publique avaient déjà des titres et descriptions vérifiés; elles sont conservées et dédoublonnées. **Les 113 autres entrées étaient initialement à trier ; le résultat visuel est détaillé ci-dessus.** Leur année est l'année de téléversement Wix, pas une preuve de l'année d'exécution de l'œuvre.
+## Open the application
 
-- Le fichier `IMPORTER_TOUTES_IMAGES_WIX_2025_2026.json` contient les **125 liens d'images** et les métadonnées de tri.
-- Les images restent sur les serveurs Wix (pas de copies binaires dans l'archive ZIP). Une connexion Internet est requise.
-- La promenade utilise le chargement spatial progressif; aucune image 2025/26 n'est téléchargée en masse au lancement.
-- Le site Wix public n'est pas modifié par ce projet.
-- Dans Windows : décompresser puis lancer `LANCER_WINDOWS.bat`. La fenêtre de commande doit rester ouverte.
+Visit the [TATTOOmap website](https://ceomelyxja.github.io/TATTOOmap/). Internet access is required for Three.js and the photographs. A recent browser with WebGL is recommended. The interface remains in French.
 
----
+To run locally on Windows, download the repository and double-click `LANCER_WINDOWS.bat`. Python 3 must be installed. The launcher starts a local server and opens the browser. Keep its console open while using the app and close it or press Ctrl+C to stop the server.
 
-# TATTOOmap — MELISA FORTIN
+On macOS or Linux, run `python3 -m http.server 8765` in the repository root and open `http://127.0.0.1:8765/`.
 
-Prototype et version peaufinée d'une galerie 3D à la première personne, en **Three.js / WebGL**.
+## Controls
 
-## Lancer sur Windows
+| Control | Action |
+| --- | --- |
+| W, A, S, D or arrow keys | Move |
+| Mouse | Look around after entering the world |
+| Shift | Run |
+| E or click | Open the tattoo corresponding to a nearby motif |
+| 1, 2, 3 | Travel between the landscapes |
+| Escape | Release the pointer or close a dialog |
+| Map or tattoo list | Choose a destination |
 
-1. Décompresser l'archive ZIP.
-2. Double-cliquer sur **LANCER_WINDOWS.bat** à la racine.
-3. Le navigateur ouvre automatiquement **l'étape 2** : `http://127.0.0.1:8765/02_peaufine/`.
-4. Pour essayer le prototype brut : `http://127.0.0.1:8765/01_prototype/`.
+On touch devices, use the joystick and drag on the scene to look around. The photo list is also available if WebGL cannot be started.
 
-Prérequis : Python 3 installé (la commande `py` ou `python` doit fonctionner) ; connexion Internet pour charger la bibliothèque Three.js par CDN et les photos hébergées par Wix ; navigateur récent avec WebGL2. **Ne pas simplement double-cliquer sur `index.html`** : les modules JavaScript nécessitent un serveur HTTP local. Fermeture du serveur : fermer la fenêtre de commandes ou Ctrl+C.
+## Catalogue and imports
 
-Sur macOS/Linux, `cd` dans ce dossier puis `python3 -m http.server 8765`, ouvrir la même adresse.
+The four modelled works use entries from `assets/tattoos.js`. `IMPORTER_TOUTES_IMAGES_WIX_2025_2026.json`, `assets/gallery.js` and `assets/wix_2025_2026.js` preserve the earlier catalogue data. Photos stay on their existing Wix URLs.
 
-## Étape 1 — 01_prototype
+The import button stores a valid JSON catalogue locally in the current browser. Imported entries are preserved for future modelling and are not automatically displayed in the four-work prototype. The CSV converter in `outils/csv_vers_json.py` can create JSON from a CSV following `outils/gabarit_portfolio.csv`.
 
-- Terrain, arbres, allée et 12 panneaux de photographies de tatouages réels ;
-- Caméra à la première personne, souris + W A S D, Maj pour courir ;
-- Approche d'un panneau et **E** pour examiner l'œuvre originale ;
-- Un rendu de validation relativement simple.
+## Project files
 
-## Étape 2 — 02_peaufine
+- `index.html` is the application entry point for GitHub Pages.
+- `02_peaufine/app.js` contains the world and interactions.
+- `02_peaufine/motifs.js` and related modules create and animate the 3D motifs.
+- `assets/tattoos.js` associates reviewed photographs, descriptions and motif types.
+- `docs/prototype-transformation.md` records prototype evidence and remaining limitations.
+- `01_prototype/` retains the earlier prototype.
+- `LANCER_WINDOWS.bat` and `outils/lancer_windows.py` launch the local Windows server.
 
-- Trois paysages : forêt, jardin botanique, crépuscule ; relief doux, végétation différenciée, rochers et sentiers reliant les secteurs ;
-- Ciel procédural suivant la caméra, lumière et brouillard variant selon le paysage, végétation en maillages instanciés, fleurs, sentiers lumineux, papillons et animaux stylisés ;
-- Navigation à la première personne, téléportation entre biomes (boutons ou touches 1, 2, 3) ;
-- Recherche par titre, catégorie, description et année ;
-- Carte, coordonnées, compteur d'œuvres, FPS ;
-- Ouverture de la photo source et de sa description ;
-- Mode mobile expérimental : joystick, balayage pour regarder, bouton Examiner ;
-- **Chargement spatial progressif** : les panneaux proches seulement sont instanciés, et leurs textures ne sont demandées que si elles se rapprochent davantage ;
-- Importation d'un catalogue JSON (1000 et davantage) en conservant le catalogue importé dans le stockage local du navigateur.
+## Validation and limitations
 
-## Réalité de la connexion avec le site
-
-Ce ZIP contient **12 photos de tatouages réels** publiées dans la galerie publique `https://www.melisafortintattoo.com/artettatouages` (identifiées sur la page publique au 23 novembre 2026) : tigre, symboles des doigts, gorille, papillon, dragon, ourson, chat, rose, toiles d'araignée, composition florale, fleurs fines, crânes et flammes.
-
-**Les quelque 1 000 tatouages n'ont pas été importés ni synchronisés.** Le site consulté présente actuellement une galerie affichant « 1/75 ». Ce nombre ne suffit pas à vérifier le nombre total historique et la galerie Wix peut charger d'autres images dynamiquement. **Ne jamais copier indistinctement le Media Manager Wix** : il peut contenir des photos non publiées. Pour passer à toutes les œuvres, il faut exporter / identifier les fichiers **déjà publics** puis générer le fichier JSON.
-
-Les images se chargent via les liens publics `static.wixstatic.com`. Elles **ne sont pas copiées dans cette archive**. Si Wix empêche le chargement de texture entre domaines (CORS), un panneau décoratif de repli apparaît. La photo originale reste consultable à travers le catalogue/lien Wix. Une intégration de production devrait utiliser un domaine autorisé pour les textures ou un proxy d'images configurable.
-
-## Ajouter les 1000 photos
-
-### Option A : importer un JSON
-
-Le bouton **＋ IMPORTER MON PORTFOLIO** en bas du mode peaufiné accepte le format suivant (voir `exemple_catalogue.json`) :
-
-```json
-[
-  {
-    "id": "2025-tattoo-001",
-    "title": "Mon tatouage",
-    "category": "Floral",
-    "year": 2025,
-    "description": "Tatouage réalisé en 2025.",
-    "image": "https://static.wixstatic.com/media/nom-de-la-photo.jpg",
-    "thumb": "https://static.wixstatic.com/media/nom-de-la-photo.jpg",
-    "source": "https://www.melisafortintattoo.com/artettatouages"
-  }
-]
-```
-
-Le logiciel n'envoie pas les photos vers un service. Le fichier JSON est enregistré seulement dans le stockage local du navigateur pour être retrouvé au prochain lancement, sur ce même navigateur et cette même adresse.
-
-### Option B : partir d'un CSV
-
-Préparer un CSV ayant les colonnes `id,title,category,year,description,image,thumb,source`, puis exécuter :
-
-```bat
-py -3 outils\csv_vers_json.py mon_catalogue.csv mon_catalogue.json
-```
-
-Importer le JSON dans l'interface. Les liens `image` peuvent également être des chemins relatifs vers des photos placées dans le dossier `images/`, par exemple `../images/rose.jpg`. Cette solution suppose que le fichier JPG existe réellement à cet emplacement.
-
-## Commandes
-
-| Commande | Action |
-|---|---|
-| W A S D / flèches | Se déplacer |
-| Souris | Orienter la caméra (après entrée dans le monde) |
-| Maj | Courir |
-| E | Ouvrir le tatouage visé (à moins de 12 m) |
-| 1 / 2 / 3 | Téléporter vers l'un des trois paysages |
-| Échap | Libérer le curseur ou fermer une fenêtre |
-| Bouton ? | Aide intégrée |
-
-## Tests et limites
-
-- Syntaxe JavaScript vérifiée avec `node --check` ; les 125 identifiants du relevé visuel correspondent à l’inventaire JSON.
-- Sous Windows, le serveur local a servi la galerie ; les cas de Python absent et de port déjà occupé ont été exercés. L’installation complète sur le Bureau n’a pas été testée.
-- Chrome automatisé avec rendu logiciel a affiché les trois paysages, des textures Wix, la recherche et les boutons de téléportation. Ce test ne mesure pas les performances de la carte graphique et ne remplace pas une promenade manuelle ; le téléphone reste à tester.
-- LOD au niveau des **panneaux** (instanciation et chargement selon distance), non pas un générateur de modèles 3D pour tatouages.
-- Le mode mobile est expérimental. Pas de collisions avancées avec arbres, ni audio 3D, ni synchronisation automatique avec Wix à ce stade.
-
-## Architecture
-
-- `assets/gallery.js` : 12 œuvres réellement identifiées ;
-- `01_prototype/` : MVP simple ;
-- `02_peaufine/` : version interactive améliorée ;
-- `outils/csv_vers_json.py` : conversion des métadonnées ;
-- `LANCER_WINDOWS.bat` : serveur HTTP local.
-
-Three.js version 0.175.0 chargée via CDN. Documentation : https://threejs.org/manual/pages/installation.html.
+The catalogue's four selected photographs and their interaction targets were checked in automated Chrome on Windows. Screenshot evidence and the current visual limitations are recorded in the prototype report. Browser performance depends on the device and graphics acceleration. Touch navigation remains experimental, and some details need further artistic modelling to match the original tattoos more closely.

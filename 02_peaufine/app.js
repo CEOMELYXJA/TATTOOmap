@@ -1,10 +1,7 @@
 import * as THREE from 'three';
-import { artworks as initialArtworks } from '../assets/gallery.js';
-import { wixArchiveArtworks } from '../assets/wix_2025_2026.js';
+import { tattooWorks } from '../assets/tattoos.js';
+import { createMotif, animateMotif } from './motifs.js';
 
-// === THREE.JS — Melisa Fortin, galerie spatiale (étape 2) ===
-// Fonctionne sans serveur applicatif et sans clé API. Les images publiques restent hébergées sur Wix.
-// Les photographies ne sont chargées qu'à proximité du visiteur (streaming spatial simple).
 const $ = (s) => document.querySelector(s);
 const canvas = $('#world');
 const isTouch = matchMedia('(pointer: coarse)').matches;
@@ -32,31 +29,27 @@ const biomes = [
   {id:'garden',name:'JARDIN BOTANIQUE',x:160,z:65,color:'#c2ab70'},
   {id:'night',name:'CRÉPUSCULE MYSTIQUE',x:-160,z:65,color:'#b3a3d3'}
 ];
-// Keep the verified art labels; new Wix media are included but marked as unverified.
-const baseWorks=[...initialArtworks,...wixArchiveArtworks];
-function mergeCatalog(extra=[]){
- const seen=new Set();return [...baseWorks,...extra].filter(w=>{
-   const key=(w.image||'').split('/v1/')[0].toLowerCase();
-   if(!key||seen.has(key))return false;seen.add(key);return true;
- });
-}
-let works=mergeCatalog();
+// A small, explicitly chosen proof of concept. The full reviewed catalogue remains intact.
+const prototypeIds = new Set([
+  'wix-upload-2026-035', // tiger
+  'wix-upload-2026-062', // red rose
+  'wix-upload-2025-027', // butterfly
+  'wix-upload-2026-065', // skulls and flames
+]);
+const works = tattooWorks.filter(work => prototypeIds.has(work.id));
 let positions=[];
 let yaw=0, pitch=0, locked=false, active=false;
 let keys={};
 let camX=0,camZ=8, bob=0, mobileF=0,mobileR=0;
 let interactionArt=null;
 let toastTimer=0;
-const activeCards=new Map();
-const ray=new THREE.Raycaster();
-const textureLoader=new THREE.TextureLoader();textureLoader.setCrossOrigin('anonymous');
-const placeholderTexture=createPlaceholder();
-const reusableGeo={panel:new THREE.PlaneGeometry(3.4,4.25),frame:new THREE.BoxGeometry(3.85,4.72,.22),post:new THREE.CylinderGeometry(.09,.13,2.3,7),base:new THREE.CylinderGeometry(.95,1.1,.24,10),indicator:new THREE.SphereGeometry(.10,8,6)};
-const indicatorMaterial=new THREE.MeshBasicMaterial({color:0xd9bb88});
-const matFrame=new THREE.MeshStandardMaterial({color:0x998363,metalness:.48,roughness:.42});
-const matPost=new THREE.MeshStandardMaterial({color:0x3e4941,metalness:.3,roughness:.6});
-const matBase=new THREE.MeshStandardMaterial({color:0x41554c,roughness:.85});
-const textureCache=new Map(); // entries released as visitor moves; never fetch all ~1000 at once
+const activeMotifs = new Map();
+const ray = new THREE.Raycaster();
+const aim = new THREE.Vector2();
+const focus = new THREE.Vector3();
+const mapScale = 1.08;
+const prefersReducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+let menuOpen = false;
 
 function rng(seed=312031){return ()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296}}const rand=rng();
 // Broad, walkable undulations; every object and the visitor use this same height.
@@ -94,7 +87,8 @@ function trees(){
     const a=rand()*6.283, r=27+Math.sqrt(rand())*165;
     const x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r;
     // Reserve each central gallery and arrival point for a clear view.
-    if(biomes.some(center=>(x-center.x)**2+(z-center.z)**2<70**2))continue;
+    if (biomes.some(center => Math.hypot(x-center.x,z-center.z) < 14)) continue;
+    if (positions.some(p => Math.hypot(x-p.x,z-p.z) < 10)) continue;
     if(Math.abs(x)<7&&z<40&&z>-70)continue;
     if(Math.abs(x-(b.x+20))<5&&Math.abs(z-(b.z+20))<5)continue;
     treePositions.push({x,y:terrain(x,z),z,biome:k,sx: .7+rand()*.72,sy:5+rand()*5,sz:.7+rand()*.72,rot:rand()*6.28});
@@ -132,12 +126,14 @@ function landscapeDetails(){
     for(let i=0;i<145;i++){
       const a=rand()*Math.PI*2,r=21+Math.sqrt(rand())*135;
       const x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r;
+      if (positions.some(p => Math.hypot(x-p.x,z-p.z) < 5)) continue;
       const q=.35+rand()*1.15;
       rocks.push({x,y:terrain(x,z)+q*.20,z,sx:q*(1+rand()),sy:q*.5,sz:q,rot:rand()*6.28});
     }
     for(let i=0;i<245;i++){
       const a=rand()*Math.PI*2,r=24+Math.sqrt(rand())*145;
       const x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r,q=.45+rand()*.8;
+      if (positions.some(p => Math.hypot(x-p.x,z-p.z) < 5)) continue;
       shrubs.push({x,y:terrain(x,z)+q*.55,z,sx:q*1.35,sy:q*.7,sz:q,rot:rand()*6.28});
     }
     placeInstanced(rockGeo,new THREE.MeshStandardMaterial({color:rockColors[k],roughness:1,flatShading:true}),rocks.length,i=>rocks[i]);
@@ -173,15 +169,12 @@ function updateAtmosphere(delta){
   hemi.color.lerp(atmosphereColors.hemi.set(a.hemi),blend);
   renderer.toneMappingExposure=THREE.MathUtils.lerp(renderer.toneMappingExposure,a.exposure,blend);
 }
-function createPlaceholder(){const c=document.createElement('canvas');c.width=512;c.height=640;const p=c.getContext('2d');const grad=p.createLinearGradient(0,0,512,640);grad.addColorStop(0,'#345c52');grad.addColorStop(1,'#122a29');p.fillStyle=grad;p.fillRect(0,0,512,640);p.strokeStyle='#c9b788';p.lineWidth=2;p.strokeRect(28,28,456,584);p.font='70px Georgia';p.textAlign='center';p.fillStyle='#d8c18e';p.fillText('✺',256,260);p.font='23px Georgia';p.fillStyle='#eee5ce';p.fillText('MELISA FORTIN',256,334);p.font='18px sans-serif';p.fillStyle='#b6c5bb';p.fillText('ARCHIVES DES TATOUAGES',256,368);const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;return tex;}
-function signCanvas(text){const c=document.createElement('canvas');c.width=1024;c.height=270;const ctx=c.getContext('2d');ctx.fillStyle='#122921';ctx.fillRect(0,0,1024,270);ctx.strokeStyle='#b8ad7b';ctx.lineWidth=6;ctx.strokeRect(14,14,996,242);ctx.font='46px Georgia';ctx.fillStyle='#dec9a5';ctx.textAlign='center';ctx.fillText(text,512,155);const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;return tex;}
 function landmarks(){
   const ringMat=new THREE.MeshStandardMaterial({color:0xa08b66,metalness:.22,roughness:.75});
   for(const b of biomes){
     const ge=new THREE.TorusGeometry(6.0,.20,8,70);const hoop=new THREE.Mesh(ge,ringMat);hoop.position.set(b.x,7.0+terrain(b.x,b.z),b.z);scene.add(hoop);
     const baseG=new THREE.CylinderGeometry(.56,.7,7,10);
     for(const xx of [-6,6]){const post=new THREE.Mesh(baseG,new THREE.MeshStandardMaterial({color:0x394e45,roughness:.9}));post.position.set(b.x+xx,3.5+terrain(b.x+xx,b.z),b.z);scene.add(post)}
-    const label=new THREE.Mesh(new THREE.PlaneGeometry(9,2.3),new THREE.MeshBasicMaterial({map:signCanvas(b.name),side:THREE.DoubleSide}));label.position.set(b.x,11.7+terrain(b.x,b.z),b.z);scene.add(label);
     // Curving illuminated trail is a geometry, not a static image.
     const pts=[];for(let i=0;i<=160;i++){const t=i/160*Math.PI*7,r=8+i/160*130,x=b.x+Math.cos(t)*r,z=b.z+Math.sin(t)*r;pts.push(v3(x,terrain(x,z)+.08,z))}
     const curve=new THREE.CatmullRomCurve3(pts);const track=new THREE.Mesh(new THREE.TubeGeometry(curve,520,.055,3,false),new THREE.MeshBasicMaterial({color:b.color,transparent:true,opacity:.64}));scene.add(track);
@@ -192,152 +185,246 @@ function landmarks(){
   const lamp=new THREE.PointLight(0x9887bd,70,85);lamp.position.set(-160,15,65);scene.add(lamp);
   const lamp2=new THREE.PointLight(0xd9af84,50,65);lamp2.position.set(160,9,65);scene.add(lamp2);
 }
-const butterflies=[];
-function makeButterflies(){
-  const wingGeo=new THREE.SphereGeometry(.55,8,5),wingMats=[0xdcc997,0xc7a3a8,0x9ec4b6].map(c=>new THREE.MeshStandardMaterial({color:c,emissive:c,emissiveIntensity:.35,roughness:.65,side:THREE.DoubleSide}));
-  for(let i=0;i<20;i++){const b=biomes[i%3],a=rand()*6.28,r=12+rand()*90;const root=new THREE.Group();root.position.set(b.x+Math.cos(a)*r,2.3+rand()*3,b.z+Math.sin(a)*r);const left=new THREE.Mesh(wingGeo,wingMats[i%3]);left.scale.set(.16,.66,.46);left.position.set(-.3,0,0);const right=left.clone();right.position.x=.3;root.add(left,right);const body=new THREE.Mesh(new THREE.CapsuleGeometry(.06,.55,3,6),new THREE.MeshStandardMaterial({color:0x283532}));body.rotation.x=Math.PI/2;root.add(body);scene.add(root);butterflies.push({root,left,right,origin:root.position.clone(),seed:rand()*8,phase:rand()*6.28})}
-}
-const animals=[];
-function makeAnimal(kind,x,z,scale=1){const bodymat=new THREE.MeshStandardMaterial({color:kind==='deer'?0x967b5d:0x9b654b,roughness:1});const dark=new THREE.MeshStandardMaterial({color:0x282c25});const grp=new THREE.Group();const body=new THREE.Mesh(new THREE.SphereGeometry(1,12,9),bodymat);body.scale.set(.83,.54,.38);body.position.y=1.05;grp.add(body);const head=new THREE.Mesh(new THREE.SphereGeometry(.34,10,8),bodymat);head.position.set(.8,1.52,0);grp.add(head);const neck=new THREE.Mesh(new THREE.CylinderGeometry(.21,.27,.92,7),bodymat);neck.position.set(.53,1.35,0);neck.rotation.z=-.35;grp.add(neck);for(const dx of [-.52,.54])for(const dz of [-.23,.23]){const leg=new THREE.Mesh(new THREE.CylinderGeometry(.09,.1,.95,6),bodymat);leg.position.set(dx,.53,dz);grp.add(leg)}for(const dz of [-.20,.20]){const ear=new THREE.Mesh(new THREE.ConeGeometry(.17,.53,6),bodymat);ear.position.set(.80,1.91,dz);grp.add(ear)}if(kind==='deer'){for(const dz of [-.19,.19]){const ant=new THREE.Mesh(new THREE.CylinderGeometry(.045,.07,.89,6),dark);ant.position.set(.69,2.25,dz);ant.rotation.z=.16;grp.add(ant)}}else{const tail=new THREE.Mesh(new THREE.ConeGeometry(.27,.73,8),bodymat);tail.position.set(-1.04,1.15,0);tail.rotation.z=-1.0;grp.add(tail)}grp.scale.setScalar(scale);grp.position.set(x,terrain(x,z),z);scene.add(grp);animals.push({grp,x,z,phase:rand()*6.28,kind})}
-function makeFauna(){makeAnimal('deer',29,-8,1.12);makeAnimal('fox',-25,20,.78);makeAnimal('deer',170,30,.95);}
 const flecks=[];let fleckGeo;
 function makeFireflies(){const particles=260;const p=new Float32Array(particles*3);for(let i=0;i<particles;i++){const b=biomes[i%3],a=rand()*6.283,r=10+rand()*105;const x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r,y=2+rand()*7;flecks.push({x,y,z,offset:rand()*6.28});p[i*3]=x;p[i*3+1]=y;p[i*3+2]=z}fleckGeo=new THREE.BufferGeometry();fleckGeo.setAttribute('position',new THREE.BufferAttribute(p,3));scene.add(new THREE.Points(fleckGeo,new THREE.PointsMaterial({color:0xefdc9a,size:.26,transparent:true,opacity:.8,depthWrite:false})))}
-function createPositions(){positions=works.map((work,i)=>{const bi=biomes[i%3],j=Math.floor(i/3),angle=(j*2.399963229728653+biomes.indexOf(bi)*.43),r=19+Math.sqrt(j)*7.4;const x=bi.x+Math.cos(angle)*r,z=bi.z+Math.sin(angle)*r;return{x,z,y:terrain(x,z),biome:bi.id}})}
-function makeCard(i){
-  const art=works[i],p=positions[i],center=biomes[i%3];
-  const g=new THREE.Group();g.position.set(p.x,p.y,p.z);
-  // Face inward, so artwork is encountered naturally while following the spiral trail.
-  g.lookAt(center.x,p.y,center.z);
-  const base=new THREE.Mesh(reusableGeo.base,matBase);base.position.y=.15;g.add(base);
-  const pillar=new THREE.Mesh(reusableGeo.post,matPost);pillar.position.y=1.4;g.add(pillar);
-  const frame=new THREE.Mesh(reusableGeo.frame,matFrame);frame.position.set(0,3.65,0);g.add(frame);
-  const face=new THREE.Mesh(reusableGeo.panel,new THREE.MeshBasicMaterial({map:placeholderTexture,side:THREE.DoubleSide}));face.position.set(0,3.65,.13);face.userData.artIndex=i;g.add(face);
-  const light=new THREE.Mesh(reusableGeo.indicator,indicatorMaterial);light.position.set(0,6.13,.18);g.add(light);
-  scene.add(g);const rec={group:g,face,art,index:i,texture:null,requested:false};activeCards.set(i,rec);return rec;
+const botanical = new Set(['rose', 'flower', 'flowers', 'blossom', 'blossomBranch', 'floweringBranch', 'lotus', 'sunflower', 'palm', 'branch', 'redRose']);
+const aquatic = new Set(['fish', 'betta', 'anglerfish', 'seahorse', 'swordfish']);
+const wild = new Set(['tiger', 'lion', 'gorilla', 'cat', 'dog', 'pug', 'bear', 'cub', 'teddy', 'bird', 'raptor', 'eagle', 'owl', 'butterfly', 'moth', 'snake', 'turtle']);
+
+function habitat(work) {
+  const primary = work.models[0];
+  if (botanical.has(primary) || aquatic.has(primary)) return biomes[1];
+  return wild.has(primary) ? biomes[0] : biomes[2];
 }
-function showPhoto(rec){
-  if(rec.requested)return;rec.requested=true;
-  const url=rec.art.thumb||rec.art.image;
-  const install=(tex)=>{
-    if(activeCards.get(rec.index)!==rec){tex.dispose();return;}
-    tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
-    rec.texture=tex;rec.face.material.map=tex;rec.face.material.needsUpdate=true;
-    // Contain the photo in the frame without stretching a tattoo.
-    const image=tex.image,aspect=image?.width/image?.height,frameAspect=3.4/4.25;
-    if(Number.isFinite(aspect)&&aspect>0){rec.face.scale.set(aspect<frameAspect?aspect/frameAspect:1,aspect>frameAspect?frameAspect/aspect:1,1)}
-  };
-  textureLoader.load(url,install,undefined,()=>{
-    if(url!==rec.art.image && activeCards.get(rec.index)===rec){textureLoader.load(rec.art.image,install,undefined,()=>{});}
+
+function createPositions() {
+  const counts = new Map();
+  positions = works.map((work, index) => {
+    const biome = habitat(work);
+    const ordinal = counts.get(biome.id) || 0;
+    counts.set(biome.id, ordinal + 1);
+    const angle = ordinal * 2.399963 + biomes.indexOf(biome) * 0.7;
+    const radius = 16 + Math.sqrt(ordinal) * 7;
+    const x = biome.x + Math.cos(angle) * radius;
+    const z = biome.z + Math.sin(angle) * radius;
+    return {index, x, z, y:terrain(x,z), biome:biome.id, angle};
   });
 }
-function removeCard(i){const rec=activeCards.get(i);if(!rec)return;scene.remove(rec.group);rec.face.material.dispose();if(rec.texture)rec.texture.dispose();activeCards.delete(i)}
-function refreshCards(){
-  if(!works.length)return;
-  const visibleLimit=isTouch?44:62,photoLimit=isTouch?24:37;
-  const visibleSq=visibleLimit*visibleLimit,photoSq=photoLimit*photoLimit;
-  const keepSq=(visibleLimit+10)**2;
-  const eligible=new Set();
-  for(let i=0;i<positions.length;i++){
-    const p=positions[i],d=(p.x-camX)**2+(p.z-camZ)**2;
-    if(d<visibleSq){eligible.add(i);const rec=activeCards.get(i)||makeCard(i);if(d<photoSq)showPhoto(rec)}
+
+function refreshMotifs() {
+  const renderDistance = isTouch ? 42 : 55;
+  for (const point of positions) {
+    const distance = Math.hypot(point.x - camX, point.z - camZ);
+    const current = activeMotifs.get(point.index);
+    if (current && distance > renderDistance + 8) {
+      scene.remove(current);
+      activeMotifs.delete(point.index);
+    } else if (!current && distance < renderDistance) {
+      const group = createMotif(works[point.index]);
+      group.userData.artIndex = point.index;
+      group.position.set(point.x, point.y, point.z);
+      // The feline faces +X in model space; the other three face +Z.
+      // Turn the principal motif toward the center of its clearing.
+      const primary = works[point.index].models[0];
+      group.rotation.y = primary === 'tiger' ? Math.PI - point.angle : -Math.PI / 2 - point.angle;
+      scene.add(group);
+      group.updateMatrixWorld(true);
+      activeMotifs.set(point.index, group);
+    }
   }
-  for(const [i,rec] of activeCards){const p=positions[i],d=(p.x-camX)**2+(p.z-camZ)**2;if(d>keepSq)removeCard(i)}
-  $('#visibleCount').textContent=String(activeCards.size);
+  $('#visibleCount').textContent = activeMotifs.size;
 }
-function freeCards(){for(const i of [...activeCards.keys()])removeCard(i)}
-function updateStats(){ $('#totalCount').textContent=String(works.length).padStart(2,'0') }
-function getNearest(){
-  ray.setFromCamera(new THREE.Vector2(0,0),camera);
-  const meshes=[...activeCards.values()].map(o=>o.face);
-  const hit=ray.intersectObjects(meshes,false).find(h=>h.distance<12);
-  return hit?works[hit.object.userData.artIndex]:null;
+
+// Read the visible mesh first, with a small target around openwork and thin stems.
+function artworkAt(ndc) {
+  ray.setFromCamera(ndc, camera);
+  ray.far = 13;
+  const groups = [...activeMotifs.values()];
+  const hit = ray.intersectObjects(groups, true)[0];
+  if (hit) {
+    let node = hit.object;
+    while (node && node.userData.artIndex === undefined) node = node.parent;
+    if (node) return works[node.userData.artIndex];
+  }
+  let bestDistance = ray.far;
+  let found = null;
+  for (const group of groups) {
+    focus.copy(group.position);
+    focus.y += group.userData.focusHeight || 1.15;
+    const distance = camera.position.distanceTo(focus);
+    if (distance < bestDistance && focus.clone().sub(camera.position).dot(ray.ray.direction) > 0 &&
+        ray.ray.distanceSqToPoint(focus) < 0.42 ** 2) {
+      bestDistance = distance;
+      found = works[group.userData.artIndex];
+    }
+  }
+  return found;
 }
+
+function getNearest() { return artworkAt(aim.set(0, 0)); }
+
 function inspect(art){ if(!art)return;document.exitPointerLock?.();$('#detailTitle').textContent=art.title;$('#detailYear').textContent=art.year||'—';$('#detailDescription').textContent=art.description||'Une œuvre de Melisa Fortin.';$('#detailCategory').textContent=art.category||'Tatouage';$('#detailPhoto').src=art.image;$('#detailPhoto').alt=art.title;const link=$('#detailSource');if(art.source?.startsWith('https://')){link.hidden=false;link.href=art.source}else{link.hidden=true;link.removeAttribute('href')}$('#details').hidden=false;}
 function hideDetails(){$('#details').hidden=true}
 function hideHelp(){$('#help').hidden=true}
 function showToast(message){const el=$('#toast');el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),3800)}
-function teleport(x,z,target=null){
-  interactionArt=null;$('#interaction').hidden=true;
-  camX=x;camZ=z;
-  // A target is a panel position: aim at its centre, not the ground below it.
-  const nearest=target||positions.reduce((best,p)=>{const d=(p.x-x)**2+(p.z-z)**2;return d<best.d?{d,p}:best},{d:Infinity,p:null}).p;
-  const dest=nearest||{x:0,z:0,y:terrain(0,0)};
-  const dx=dest.x-camX,dz=dest.z-camZ;
-  yaw=Math.atan2(-dx,-dz);
-  pitch=THREE.MathUtils.clamp(Math.atan2((dest.y+3.65)-(terrain(camX,camZ)+1.85),Math.hypot(dx,dz)),-1.35,1.35);
-  camera.position.set(camX,terrain(camX,camZ)+1.85,camZ);camera.rotation.set(pitch,yaw,0,'YXZ');camera.updateMatrixWorld();
-  freeCards();refreshCards();updateBiome();drawMiniMap();
+function visitMotif(point) {
+  if (!point) return;
+  const biome = biomes.find(b => b.id === point.biome);
+  const angle = Math.atan2(point.z - biome.z, point.x - biome.x);
+  camX = point.x - Math.cos(angle) * 6.5;
+  camZ = point.z - Math.sin(angle) * 6.5;
+  refreshMotifs();
+  const group = activeMotifs.get(point.index);
+  const height = group?.userData.focusHeight || 1.15;
+  yaw = Math.atan2(camX - point.x, camZ - point.z);
+  pitch = Math.atan2(point.y + height - terrain(camX,camZ) - 1.85, 6.5);
+  camera.position.set(camX, terrain(camX,camZ) + 1.85, camZ);
+  camera.rotation.set(pitch, yaw, 0, 'YXZ');
+  camera.updateMatrixWorld();
+  interactionArt = getNearest();
+  updateBiome();
+  drawMiniMap();
 }
-function artworkApproach(p){
-  // Panels face their biome centre; approach from that side for an unobstructed view.
-  const bi=biomes.find(b=>b.id===p.biome),dx=p.x-bi.x,dz=p.z-bi.z,dist=Math.hypot(dx,dz)||1;
-  return {x:p.x-dx/dist*8,z:p.z-dz/dist*8};
+
+function goBiome(id) {
+  const point = positions.find(p => p.biome === id);
+  visitMotif(point);
+  showToast(biomes.find(b => b.id === id).name);
 }
-function arrivalForBiome(bi){
-  let best=null;
-  for(const p of positions){
-    const radius=Math.hypot(p.x-bi.x,p.z-bi.z);
-    if(p.biome!==bi.id||radius>55)continue;
-    const point=artworkApproach(p);
-    // Staying outside the arch and looking outwards keeps its posts behind the visitor.
-    if(Math.hypot(point.x-bi.x,point.z-bi.z)<10)continue;
-    const clearance=positions.reduce((min,other)=>other===p?min:Math.min(min,(other.x-point.x)**2+(other.z-point.z)**2),Infinity);
-    if(!best||clearance>best.clearance)best={...point,clearance,target:p};
-  }
-  return best||{x:bi.x,z:bi.z+12,target:null};
-}
-function goBiome(id){
-  const bi=biomes.find(b=>b.id===id);if(!bi)return;
-  const arrival=arrivalForBiome(bi);teleport(arrival.x,arrival.z,arrival.target);showToast(bi.name);
-}
+
 function updateBiome(){const b=biomeAt(camX,camZ);$('#biomeLabel').textContent=b.name;$('#coords').textContent=`X ${Math.round(camX)} · Z ${Math.round(camZ)}`;document.querySelectorAll('.biome').forEach(btn=>btn.classList.toggle('active',btn.dataset.biome===b.id))}
 function drawMiniMap(){
   const can=$('#minimap'),ctx=can.getContext('2d'),w=can.width,h=can.height;
   ctx.clearRect(0,0,w,h);ctx.fillStyle='rgba(7,26,24,.65)';ctx.fillRect(0,0,w,h);
   for(let x=0;x<=w;x+=23){ctx.strokeStyle='rgba(183,200,176,.09)';ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}
   for(let y=0;y<=h;y+=22){ctx.strokeStyle='rgba(183,200,176,.09)';ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
-  const scale=1.08,tx=x=>w/2+(x-camX)*scale,ty=z=>h/2+(z-camZ)*scale;
-  for(const b of biomes){const x=tx(b.x),y=ty(b.z);ctx.strokeStyle=b.color;ctx.globalAlpha=.36;ctx.beginPath();ctx.arc(x,y,24,0,6.283);ctx.stroke();ctx.globalAlpha=1;ctx.font='9px sans-serif';ctx.fillStyle=b.color;ctx.fillText(b.id.toUpperCase(),x-14,y-29)}
-  for(let i=0;i<positions.length;i++){const p=positions[i],x=tx(p.x),y=ty(p.z);if(x<0||x>w||y<0||y>h)continue;ctx.fillStyle='rgba(233,215,164,.82)';ctx.fillRect(x-1,y-1,2,2)}
+  const scale=mapScale,tx=x=>w/2+(x-camX)*scale,ty=z=>h/2+(z-camZ)*scale;
+  for(const b of biomes){const x=tx(b.x),y=ty(b.z);ctx.strokeStyle=b.color;ctx.globalAlpha=.36;ctx.beginPath();ctx.arc(x,y,24,0,6.283);ctx.stroke();ctx.globalAlpha=1;ctx.font='9px sans-serif';ctx.fillStyle=b.color;ctx.fillText(b.name.split(' ')[0],x-14,y-29)}
+  for(let i=0;i<positions.length;i++){const p=positions[i],x=tx(p.x),y=ty(p.z);if(x<0||x>w||y<0||y>h)continue;ctx.fillStyle='rgba(233,215,164,.82)';ctx.beginPath();ctx.arc(x,y,2.4,0,Math.PI*2);ctx.fill()}
   ctx.save();ctx.translate(w/2,h/2);ctx.rotate(-yaw);ctx.fillStyle='#d0efae';ctx.beginPath();ctx.moveTo(0,-9);ctx.lineTo(-6,6);ctx.lineTo(6,6);ctx.closePath();ctx.fill();ctx.restore();
 }
-function searchResults(){
-  const term=$('#search').value.trim().toLocaleLowerCase('fr');const out=$('#results');
-  if(!term){out.hidden=true;out.replaceChildren();$('#searchCount').textContent='';return}
-  const matches=works.map((w,i)=>({w,i})).filter(({w})=>[w.title,w.category,w.description,String(w.year)].some(s=>String(s||'').toLocaleLowerCase('fr').includes(term)));
-  out.hidden=false;out.replaceChildren();$('#searchCount').textContent=`${matches.length} RÉSULTAT(S)`;
-  for(const {w,i} of matches.slice(0,9)){const button=document.createElement('button');button.textContent=w.title;const small=document.createElement('small');small.textContent=`${w.category||'Tatouage'} · ${w.year||'—'}`;button.append(small);button.onclick=()=>{const p=positions[i],point=artworkApproach(p);teleport(point.x,point.z,p);$('#search').value='';searchResults();$('#search').blur();showToast(`Œuvre trouvée : ${w.title}`)};out.append(button)}
-  if(!matches.length){const p=document.createElement('p');p.textContent='Aucune œuvre trouvée.';p.style.cssText='font-size:12px;color:#c4c7b9';out.append(p)}
+function folded(text) {
+  return String(text || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('fr');
 }
-function validateCatalog(raw){
-  const arr=Array.isArray(raw)?raw:raw?.artworks;
-  if(!Array.isArray(arr))throw Error('Le fichier doit contenir un tableau d’œuvres ou {"artworks": [...]}.');
-  if(arr.length>10000)throw Error('Le catalogue dépasse la limite actuelle de 10 000 œuvres.');
-  const clean=arr.map((w,i)=>{
-    if(typeof w!=='object'||!w||typeof w.image!=='string'||!w.image.trim())return null;
-    const image=w.image.trim();if(!/^(https?:\/\/|\.{0,2}\/|images\/|assets\/)/i.test(image))return null;
-    return{id:String(w.id||`import-${i}`),title:String(w.title||`Œuvre ${i+1}`),category:String(w.category||'Tatouage'),year:w.year||null,description:String(w.description||''),image,thumb: typeof w.thumb==='string'?w.thumb:image,source: typeof w.source==='string'&&w.source.startsWith('https://')?w.source:''}
-  }).filter(Boolean);
-  if(!clean.length)throw Error('Aucune œuvre valide avec une adresse « image ».');
-  return clean;
+
+function searchResults() {
+  const input = $('#search');
+  const term = folded(input.value.trim());
+  const out = $('#results');
+  out.replaceChildren();
+  out.hidden = !term && !menuOpen;
+  $('#searchCount').textContent = '';
+  if (out.hidden) return;
+  const matches = works.map((work,i) => ({work,i})).filter(({work}) =>
+    [work.title, work.category, work.description, work.year].some(value => folded(value).includes(term)));
+  $('#searchCount').textContent = matches.length;
+  for (const {work,i} of matches) {
+    const button = document.createElement('button');
+    button.textContent = work.title;
+    const small = document.createElement('small');
+    small.textContent = work.category;
+    button.append(small);
+    button.onclick = () => {
+      visitMotif(positions[i]);
+      input.value = '';
+      input.blur();
+      menuOpen = false;
+      searchResults();
+      showToast(work.title);
+    };
+    out.append(button);
+  }
+  if (!matches.length) out.textContent = 'Aucun tatouage trouvé.';
 }
-function adoptCatalog(entries){works=entries;freeCards();createPositions();updateStats();refreshCards();searchResults();drawMiniMap()}
-function setupInput(){
-  $('#importBtn').addEventListener('click',()=>$('#importInput').click());
-  $('#importInput').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{const text=await file.text();const newWorks=validateCatalog(JSON.parse(text));localStorage.setItem('mft-portfolio-3d-v1',JSON.stringify(newWorks));adoptCatalog(mergeCatalog(newWorks));showToast(`${newWorks.length} médias supplémentaires importés, sans effacer les archives Wix.`)}catch(err){showToast(`Erreur d'importation : ${err.message}`)}e.target.value=''});
-  try{const saved=localStorage.getItem('mft-portfolio-3d-v1');if(saved)adoptCatalog(mergeCatalog(validateCatalog(JSON.parse(saved))))}catch{localStorage.removeItem('mft-portfolio-3d-v1')}
+
+function setupMap() {
+  const map = $('#minimap');
+  map.onclick = event => {
+    const bounds = map.getBoundingClientRect();
+    const x = camX + ((event.clientX - bounds.left) / bounds.width - 0.5) * map.width / mapScale;
+    const z = camZ + ((event.clientY - bounds.top) / bounds.height - 0.5) * map.height / mapScale;
+    let target;
+    let threshold = 9 / mapScale;
+    for (const point of positions) {
+      const distance = Math.hypot(point.x - x, point.z - z);
+      if (distance < threshold) { target = point; threshold = distance; }
+    }
+    if (target) {
+      visitMotif(target);
+      showToast(works[target.index].title);
+    }
+  };
+  $('#catalogBtn').onclick = () => {
+    inputCatalog();
+  };
+  function inputCatalog() {
+    document.exitPointerLock?.();
+    menuOpen = !menuOpen;
+    $('#search').value = '';
+    searchResults();
+    if (menuOpen) $('#search').focus();
+  }
 }
+
+// Keep imported catalogues available for later development without placing
+// unreviewed images in this four-work prototype.
+function setupImport() {
+  const input = $('#importInput');
+  $('#importBtn').onclick = () => input.click();
+  input.onchange = async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    try {
+      const raw = JSON.parse(await file.text());
+      const entries = Array.isArray(raw) ? raw : raw?.artworks;
+      if (!Array.isArray(entries) || entries.length > 10000) throw new Error('Catalogue invalide ou trop volumineux.');
+      const valid = entries.filter(work => work && typeof work.image === 'string' && /^(https?:\/\/|\.{0,2}\/|images\/|assets\/)/i.test(work.image.trim()));
+      if (!valid.length) throw new Error('Aucune image valide.');
+      const key = 'mft-portfolio-3d-v1';
+      const previous = JSON.parse(localStorage.getItem(key) || '[]');
+      if (!Array.isArray(previous)) throw new Error('Le catalogue sauvegardé doit être vérifié.');
+      const all = new Map([...previous, ...valid].filter(work => work && typeof work.image === 'string').map(work => [work.image, work]));
+      localStorage.setItem(key, JSON.stringify([...all.values()]));
+      showToast('Catalogue sauvegardé. La forêt présente les quatre œuvres du prototype.');
+    } catch (error) {
+      showToast(`Importation impossible : ${error.message}`);
+    } finally {
+      input.value = '';
+    }
+  };
+}
+
 function setupEvents(){
-  $('#enter').onclick=()=>{$('#intro').hidden=true;active=true;if(!isTouch)canvas.requestPointerLock?.().catch(()=>showToast('Clique dans le monde pour orienter la caméra.'))};
-  canvas.addEventListener('click',e=>{if(!active||!$('#details').hidden)return;if(!isTouch&&document.pointerLockElement!==canvas){const ndc=new THREE.Vector2(e.clientX/innerWidth*2-1,1-e.clientY/innerHeight*2);ray.setFromCamera(ndc,camera);const hit=ray.intersectObjects([...activeCards.values()].map(v=>v.face)).find(h=>h.distance<14);if(hit){inspect(works[hit.object.userData.artIndex]);return}canvas.requestPointerLock?.().catch(()=>{})}else if(isTouch){const near=getNearest();if(near)inspect(near)}});
+  const lockPointer = () => canvas.requestPointerLock?.()?.catch(() => {});
+  $('#enter').disabled = false;
+  $('#enter').onclick = () => {
+    $('#intro').hidden = true;
+    active = true;
+    if (!isTouch) lockPointer();
+  };
+  canvas.addEventListener('click', event => {
+    if (!active || !$('#details').hidden || !$('#help').hidden || touchWasDrag) return;
+    const bounds = canvas.getBoundingClientRect();
+    const ndc = locked ? aim.set(0,0) : aim.set(
+      (event.clientX - bounds.left) / bounds.width * 2 - 1,
+      1 - (event.clientY - bounds.top) / bounds.height * 2);
+    const work = artworkAt(ndc);
+    if (work) inspect(work);
+    else if (!isTouch && !locked) lockPointer();
+  });
   document.addEventListener('pointerlockchange',()=>locked=document.pointerLockElement===canvas);
   document.addEventListener('mousemove',e=>{if(!locked||!active||!$('#details').hidden)return;yaw-=e.movementX*.00225;pitch=THREE.MathUtils.clamp(pitch-e.movementY*.00225,-1.35,1.35)});
   document.addEventListener('keydown',e=>{
-    if(e.target instanceof HTMLInputElement)return;
+    if (e.code === 'Escape') {
+      if (document.pointerLockElement) document.exitPointerLock?.();
+      hideDetails(); hideHelp(); menuOpen = false; $('#search').value = ''; searchResults(); $('#search').blur();
+      return;
+    }
+    if (!active || !$('#details').hidden || !$('#help').hidden || e.target instanceof HTMLInputElement) return;
     keys[e.code]=true;
-    if(e.code==='KeyE'&&active&&$('#details').hidden&&$('#help').hidden)inspect(interactionArt||getNearest());
+    if(e.code==='KeyE'&&active&&$('#details').hidden&&$('#help').hidden)inspect(getNearest());
     if(e.code==='Digit1')goBiome('forest');if(e.code==='Digit2')goBiome('garden');if(e.code==='Digit3')goBiome('night');
-    if(e.code==='Escape'){hideDetails();hideHelp()}
+
   });
   document.addEventListener('keyup',e=>{keys[e.code]=false});
   const stopMovement=()=>{keys={};mobileF=mobileR=0;$('#knob').style.transform='translate(0,0)'};
@@ -348,39 +435,52 @@ function setupEvents(){
   $('#helpBtn').onclick=()=>{document.exitPointerLock?.();$('#help').hidden=false};
   $('#helpDim').onclick=$('#closeHelp').onclick=$('#helpOkay').onclick=hideHelp;
   $('#closeDetails').onclick=$('#closeDim').onclick=hideDetails;
-  $('#mobileInspect').onclick=()=>inspect(interactionArt||getNearest());
+  $('#mobileInspect').onclick=()=>inspect(getNearest());
   addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,isTouch?1.3:1.75))});
+  setupMap();
+  setupImport();
   if(isTouch)setupTouch();
 }
+let touchWasDrag = false;
 function setupTouch(){
-  $('#mobileControls').hidden=false;const joy=$('#joystick'),knob=$('#knob');let joyId=null,lookId=null,lastX=0,lastY=0;
+  $('#mobileControls').hidden=false;
+  $('#interaction strong').textContent='EXAMINER';
+  const joy=$('#joystick'),knob=$('#knob');let joyId=null,lookId=null,lastX=0,lastY=0,startX=0,startY=0;
   joy.addEventListener('pointerdown',e=>{joyId=e.pointerId;joy.setPointerCapture(e.pointerId);joystickMove(e)});
   joy.addEventListener('pointermove',e=>{if(e.pointerId===joyId)joystickMove(e)});
   const release=e=>{if(e.pointerId!==joyId)return;joyId=null;mobileR=mobileF=0;knob.style.transform='translate(0,0)'};
   joy.addEventListener('pointerup',release);joy.addEventListener('pointercancel',release);
   function joystickMove(e){const r=joy.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=e.clientX-cx,dy=e.clientY-cy,len=Math.max(1,Math.hypot(dx,dy)),scale=Math.min(len,39)/len;mobileR=dx*scale/39;mobileF=-dy*scale/39;knob.style.transform=`translate(${dx*scale}px,${dy*scale}px)`}
-  canvas.addEventListener('pointerdown',e=>{if(e.pointerType!=='touch')return;lookId=e.pointerId;lastX=e.clientX;lastY=e.clientY;canvas.setPointerCapture(e.pointerId)});
-  canvas.addEventListener('pointermove',e=>{if(e.pointerId!==lookId||!active)return;yaw-=(e.clientX-lastX)*.006;pitch=THREE.MathUtils.clamp(pitch-(e.clientY-lastY)*.006,-1.35,1.35);lastX=e.clientX;lastY=e.clientY});
+  canvas.addEventListener('pointerdown',e=>{if(e.pointerType!=='touch')return;lookId=e.pointerId;touchWasDrag=false;startX=lastX=e.clientX;startY=lastY=e.clientY;canvas.setPointerCapture(e.pointerId)});
+  canvas.addEventListener('pointermove',e=>{if(e.pointerId!==lookId||!active)return;if(Math.hypot(e.clientX-startX,e.clientY-startY)>8)touchWasDrag=true;yaw-=(e.clientX-lastX)*.006;pitch=THREE.MathUtils.clamp(pitch-(e.clientY-lastY)*.006,-1.35,1.35);lastX=e.clientX;lastY=e.clientY});
   canvas.addEventListener('pointerup',e=>{if(e.pointerId===lookId)lookId=null});
   $('#mobileLook').onclick=()=>showToast('Glisse sur le paysage pour tourner la caméra.');
 }
 function animateDecor(t){
-  for(const b of butterflies){const tm=t+b.seed;b.root.position.x=b.origin.x+Math.sin(tm*.65)*1.5;b.root.position.y=b.origin.y+Math.sin(tm*2.3+b.phase)*.24;b.root.position.z=b.origin.z+Math.cos(tm*.6)*1.7;b.root.rotation.y=tm*.18;b.left.rotation.y=Math.sin(tm*12+b.phase)*.8;b.right.rotation.y=-Math.sin(tm*12+b.phase)*.8}
-  for(const a of animals){a.grp.position.x=a.x+Math.sin(t*.25+a.phase)*2;a.grp.position.z=a.z+Math.cos(t*.25+a.phase)*2;a.grp.rotation.y=Math.sin(t*.25+a.phase)*.25;a.grp.position.y=terrain(a.grp.position.x,a.grp.position.z)+Math.max(0,Math.sin(t*2+a.phase))*.02}
+  for (const group of activeMotifs.values()) animateMotif(group, prefersReducedMotion.matches ? 0 : t, camera.position);
   const attr=fleckGeo.attributes.position;for(let i=0;i<flecks.length;i++)attr.setY(i,flecks[i].y+Math.sin(t*.85+flecks[i].offset)*.38);attr.needsUpdate=true;
 }
 let frameCounter=0,fpsLast=0,worldLast=0,miniLast=0,interactionLast=0;
 function animate(){requestAnimationFrame(animate);const delta=Math.min(clock.getDelta(),.065),t=clock.elapsedTime;
   const modal=!$('#details').hidden||!$('#help').hidden;
-  let f=0,r=0;if(active&&!modal&&document.activeElement!==$('#search')){f=(keys.KeyW||keys.ArrowUp?1:0)-(keys.KeyS||keys.ArrowDown?1:0)+mobileF;r=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+mobileR}
+  let f=0,r=0;if(active&&!modal&&document.activeElement!==$('#search')){f=(keys.KeyW||keys.KeyZ||keys.ArrowUp?1:0)-(keys.KeyS||keys.ArrowDown?1:0)+mobileF;r=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.KeyQ||keys.ArrowLeft?1:0)+mobileR}
   const velocity=v3(r,0,-f);if(velocity.lengthSq()){velocity.normalize().applyAxisAngle(UP,yaw).multiplyScalar((keys.ShiftLeft||keys.ShiftRight?12.4:6.2)*delta);camX=THREE.MathUtils.clamp(camX+velocity.x,-350,350);camZ=THREE.MathUtils.clamp(camZ+velocity.z,-350,350);bob+=delta*11}else{bob+=delta*3}
   camera.position.set(camX,terrain(camX,camZ)+1.85+(velocity.lengthSq()?.034*Math.sin(bob):0),camZ);camera.rotation.set(pitch,yaw,0,'YXZ');
   skyGroup.position.copy(camera.position);updateAtmosphere(delta);
   animateDecor(t);renderer.render(scene,camera);
   frameCounter++;if(t-fpsLast>1){$('#fps').textContent=String(Math.round(frameCounter/(t-fpsLast)));frameCounter=0;fpsLast=t}
-  if(t-worldLast>.42){refreshCards();updateBiome();worldLast=t}
+  if(t-worldLast>.42){refreshMotifs();updateBiome();worldLast=t}
   if(t-miniLast>.26){drawMiniMap();miniLast=t}
   if(t-interactionLast>.13){interactionArt=active&&!modal?getNearest():null;$('#interaction').hidden=!interactionArt;if(interactionArt)$('#nearTitle').textContent=interactionArt.title;interactionLast=t}
 }
-function start(){addSky();makeGround();trees();landscapeDetails();landmarks();makeButterflies();makeFauna();makeFireflies();createPositions();setupEvents();setupInput();updateStats();const arrival=arrivalForBiome(biomes[0]);teleport(arrival.x,arrival.z,arrival.target);animate()}
-try{start()}catch(err){console.error('Erreur de la scène 3D',err);showToast('Erreur du rendu 3D : '+err.message)}
+createPositions();
+addSky();
+makeGround();
+trees();
+landscapeDetails();
+landmarks();
+makeFireflies();
+setupEvents();
+$('#totalCount').textContent = works.length;
+visitMotif(positions.find(p => works[p.index].models[0] === 'tiger') || positions[0]);
+animate();

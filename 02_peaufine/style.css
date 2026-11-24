@@ -2,6 +2,8 @@
 @media(max-width:1150px){.side-left{width:260px}.side-right{width:220px}.bottomline{gap:14px}.bottomline span:nth-child(n+3){display:none}h1{font-size:30px}}@media(max-width:750px){.topbar{height:70px;padding:0 18px}.mark{width:39px;height:39px;font-size:20px}.brandtext strong{font-size:10px}.brandtext span{font-size:7px}.live{display:none}.side-left{top:84px;left:15px;width:calc(100% - 30px)}.side-left h1{font-size:23px;margin:8px 0 5px}.subtitle,.eyebrow,.stat-row,.biomes .label{display:none}.biomes{margin-top:12px;display:flex;border:0;padding:0;gap:2px}.biome{width:auto;padding:7px 8px;gap:6px;font-size:9px;border:1px solid #c4b58d36}.biome-no,.biome-arrow{display:none}.side-right{top:auto;bottom:206px;right:14px;width:190px}.searchcard{padding:10px;margin-bottom:0}.searchcard label{font-size:8px}.mapcard{display:none}.bottomline{height:54px;padding:0 15px}.bottomline>span{display:none}.bottomline button{margin:auto;font-size:9px}.intro-panel h2{font-size:46px}.intro-panel p{font-size:14px}.intro-side{display:none}.detail-sheet{grid-template-columns:1fr;overflow:auto;max-height:88vh}.detail-photo-wrap{min-height:0;height:48vh}.detail-photo-wrap img{height:48vh}.detail-text{padding:24px}.detail-text h2{font-size:29px;margin:10px 0}.detail-text p{font-size:13px}.tag{margin:7px 0 17px}.interaction{bottom:194px;font-size:9px;padding:9px;max-width:90%;overflow:hidden;text-overflow:ellipsis}#mobileControls{bottom:62px}}
 #world{touch-action:none}
 
+@media(max-width:750px){.interaction{top:195px;bottom:auto}}
+
 /* Keep the biome controls clear of the bottom bar on shorter desktop windows. */
 @media (min-width:751px) and (max-height:750px){
   .side-left{top:112px}
