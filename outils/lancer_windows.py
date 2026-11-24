@@ -15,6 +15,7 @@ FILES = (
     '02_peaufine/style.css',
     '02_peaufine/motifs.js',
     '02_peaufine/sculptures.js',
+    '02_peaufine/prototype-details.js',
     'assets/tattoos.js',
 )
 

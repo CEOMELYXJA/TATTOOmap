@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { buildSculpture } from './sculptures.js';
+import { buildPrototypeRose, buildPrototypeSkulls } from './prototype-details.js';
 
 // Each stationary body or animated limb is one draw, including all of its colours.
 // Recipes are baked once, then the geometry is shared between encounters.
 const clay = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .8, flatShading: true, side: THREE.DoubleSide });
-const unitSphere = new THREE.SphereGeometry(1, 12, 8);
+const unitSphere = new THREE.SphereGeometry(1, 20, 14);
 const unitBox = new THREE.BoxGeometry();
 const identity = [0, 0, 0];
 const vector = a => new THREE.Vector3(...a);
@@ -68,7 +69,73 @@ function leg(b,x,z,back,color,thickness=.16) {
   b.ball([x+.08,.13,z],[.21,.12,thickness*.85],color);
 }
 
+// A black-and-grey tiger inspired by the frontal portrait in 2026-035.
+// The face is sculpted in relief. The markings follow its volume instead of
+// projecting the photograph onto a flat surface.
+function tattooTiger(b) {
+  const fur = '#817f7c', light = '#c6c2bb', shade = '#444443';
+  // Torso and four weight-bearing legs, viewed most clearly from the side.
+  b.ball([-.27,1.42,0],[1.05,.58,.45],fur);
+  b.ball([.48,1.49,0],[.60,.70,.49],fur);
+  for (const side of [-1,1]) {
+    for (const x of [-.86,.56]) {
+      const z=side*.29;
+      b.ball([x,1.12,z],[.25,.42,.20],fur,[0,0,x<0?-.18:.06]);
+      b.rod([x,1.04,z],[x-.04,.35,z],.18,.115,fur);
+      b.ball([x+.08,.20,z],[.25,.14,.19],light);
+      for(let toe=-1;toe<=1;toe++) b.path([[x+.19,.23,z+toe*.08],[x+.25,.18,z+toe*.08]],.012,shade);
+    }
+    // Tapered black stripes follow the curved flank.
+    for(let i=0;i<7;i++) {
+      const x=-.99+i*.25, span=Math.sqrt(Math.max(.1,1-((x+.27)/1.06)**2));
+      const points=[[x,1.42+.55*span,side*.04],[x+.06,1.42+.36*span,side*.35*span],
+        [x-.02,1.42+.02*span,side*.46*span],[x-.08,1.42-.23*span,side*.38*span]];
+      for(let j=0;j<points.length-1;j++) b.rod(points[j],points[j+1],.065-j*.015,.050-j*.016,ink);
+    }
+  }
+  b.path([[-1.24,1.48,0],[-1.60,1.34,-.02],[-1.84,.89,.03],[-2.15,.91,.05],[-2.28,1.10,.07]],.105,fur);
+  for(let i=0;i<5;i++) b.ball([-1.52-i*.15,1.28-i*.065,.035],[.065,.12,.12],ink);
+
+  // An enlarged, rounded forehead, narrowing into a muzzle with cheek ruffs.
+  b.ball([.91,1.98,0],[.48,.53,.49],fur);
+  b.ball([1.13,1.92,0],[.32,.38,.40],light);
+  for(const side of [-1,1]) {
+    const z=side*.32;
+    b.ball([.79,2.39,z],[.16,.19,.14],ink);
+    b.ball([.87,2.40,z],[.11,.12,.095],fur);
+    // Cream markings surround the eyes and fan into the cheeks.
+    b.ball([1.25,2.07,side*.23],[.10,.115,.16],light);
+    b.ball([1.34,2.08,side*.23],[.028,.050,.075],ink);
+    b.ball([1.366,2.09,side*.23],[.012,.023,.031],'#d8d5c5');
+    b.ball([1.20,1.77,side*.30],[.19,.18,.19],light);
+    // Fine, tapering curved stripes emulate the individual blackwork lines.
+    const lines=[
+      [[1.20,2.38,side*.02],[1.29,2.29,side*.06],[1.35,2.20,side*.11]],
+      [[1.11,2.42,side*.13],[1.21,2.34,side*.18],[1.29,2.22,side*.20]],
+      [[1.01,2.38,side*.25],[1.10,2.31,side*.31],[1.18,2.20,side*.36]],
+      [[1.03,2.19,side*.43],[1.14,2.15,side*.41],[1.24,2.12,side*.34]],
+      [[1.05,2.04,side*.45],[1.16,2.01,side*.43],[1.25,1.99,side*.36]],
+      [[1.04,1.92,side*.44],[1.14,1.88,side*.42],[1.24,1.86,side*.35]],
+      [[1.05,1.80,side*.39],[1.13,1.75,side*.38],[1.21,1.74,side*.31]],
+    ];
+    for (const points of lines) {
+      b.rod(points[0],points[1],.043,.029,ink);
+      b.rod(points[1],points[2],.029,.006,ink);
+    }
+    b.ball([1.38,1.81,side*.13],[.15,.13,.16],light);
+    for(let i=0;i<4;i++) {
+      const y=1.83-i*.035;
+      b.rod([1.46,y,side*.14],[1.52,y+.025-i*.016,side*(.54+i*.035)],.009,.002,light);
+    }
+  }
+  b.ball([1.48,1.88,0],[.075,.055,.12],ink);
+  b.path([[1.49,1.84,0],[1.48,1.76,0],[1.43,1.72,-.12]],.018,ink);
+  b.path([[1.48,1.76,0],[1.43,1.72,.12]],.018,ink);
+  b.ball([1.25,1.59,0],[.18,.11,.24],light);
+}
+
 function feline(b,code,variant) {
+  if (code==='tiger' && variant==='blackwork') return tattooTiger(b);
   const stripes = code==='tiger', mane = code==='lion', kitten = code==='cat', cub = code==='cub';
   // The photographed back piece is black and grey, rather than an orange tiger.
   const body = stripes ? (variant==='blackwork' ? '#8c8984' : '#ce8035') : kitten ? (variant==='black' ? '#35323c' : '#9d806a') : '#bd965d';
@@ -219,21 +286,29 @@ function flight(b,part,code) {
 
 function butterfly(b,part,code,variant) {
   const moth=code==='moth', delicate=code==='insect';
-  const outline='#3d353a', colour=variant==='blackwork'?'#a5a49d':moth?'#c5a67c':delicate?'#9bbcac':'#d58141';
+  const outline='#29282a', colour=variant==='blackwork'?'#969493':moth?'#c5a67c':delicate?'#9bbcac':'#d58141';
   b.ball([0,1.34,.03],[.084,.37,.11],outline);
   b.ball([0,1.72,.06],[.105,.105,.105],outline);
   for(const s of [-1,1]){
     b.path([[s*.045,1.79,.07],[s*.095,1.94,.08],[s*.19,2.00,.055]],.014,outline);
     const w=part('flutter',s,[s*.04,1.43,0]);
-    w.poly([[0,0],[s*.25,.37],[s*.81,.65],[s*1.04,.58],[s*.94,.21],[s*.55,-.05],[s*.83,-.18],[s*.68,-.46],[s*.35,-.48],[s*.12,-.22]],.065,identity,outline);
-    w.poly([[s*.10,.04],[s*.31,.31],[s*.77,.52],[s*.90,.49],[s*.81,.23],[s*.46,.016]],.028,[0,0,.067],colour);
-    // Keep the lower lobe as a filled, extruded wing, with a contrasting border.
-    w.poly([[s*.10,-.07],[s*.49,-.06],[s*.72,-.19],[s*.60,-.38],[s*.37,-.40],[s*.18,-.24]],.025,[0,0,.07],colour);
-    for(let j=0;j<3;j++) w.ball([s*(.81-j*.088),.46-j*.033,.092],[.032,.036,.018],ivory);
-    w.rod([s*.12,.055,.082],[s*.69,.42,.084],.014,.008,outline);
-    w.rod([s*.12,.025,.10],[s*.82,.24,.10],.014,.008,outline);
-    w.rod([s*.11,-.05,.10],[s*.57,-.29,.10],.014,.008,outline);
-    w.ball([s*.59,.30,.09],[.09,.08,.014],moth?'#685237':ivory);
+    // The photographed wings are full, rounded and shaded, with dark veins.
+    // Layered shallow volumes keep the wings visible from both sides.
+    w.ball([s*.48,.25,0],[.58,.30,.055],outline,[0,0,s*.46]);
+    w.ball([s*.45,-.20,0],[.43,.28,.055],outline,[0,0,-s*.32]);
+    for(const face of [-1,1]) {
+      const z=face*.055;
+      w.ball([s*.47,.25,z],[.50,.245,.016],colour,[0,0,s*.46]);
+      w.ball([s*.44,-.20,z],[.35,.22,.016],colour,[0,0,-s*.32]);
+      // Radiating lines and spots echo the engraved wings of the reference.
+      const front=face*.077;
+      for(const end of [[.88,.51],[.90,.31],[.78,.11],[.66,-.03],[.69,-.22],[.54,-.39]]) {
+        w.path([[s*.08,0,front],[s*(end[0]*.49),end[1]*.52,front],[s*end[0],end[1],front]],.014,outline);
+      }
+      for(let j=0;j<4;j++) w.ball([s*(.75-j*.12),.41-j*.045,face*.08],[.045,.06,.009],j%2?outline:ivory);
+      w.ball([s*.58,-.20,face*.08],[.095,.12,.01],outline,[0,0,s*.2]);
+      w.ball([s*.58,-.20,face*.092],[.047,.06,.008],ivory,[0,0,s*.2]);
+    }
   }
 }
 
@@ -397,7 +472,15 @@ function makeTemplate(code,variant) {
     case 'butterfly': case 'moth': case 'insect': butterfly(body,part,code,variant); break;
     case 'seahorse': case 'fish': case 'betta': case 'anglerfish': case 'swordfish': fish(body,part,code); break;
     case 'snake': case 'turtle': reptile(body,code); break;
-    case 'flower': case 'rose': case 'blossom': case 'palm': case 'sunflower': case 'lotus': plant(body,code,variant); break;
+    case 'rose':
+      if (variant === 'prototype') buildPrototypeRose(body);
+      else plant(body,code,variant);
+      break;
+    case 'skull':
+      if (variant === 'prototype') buildPrototypeSkulls(body);
+      else buildSculpture(code,body);
+      break;
+    case 'flower': case 'blossom': case 'palm': case 'sunflower': case 'lotus': plant(body,code,variant); break;
     default:
       if(!supportedModels.includes(code)) throw new Error('Motif 3D inconnu : '+code);
       buildSculpture(code,body);
@@ -427,6 +510,8 @@ function hash(text) {
   return h;
 }
 function variantFor(code,work,seed){
+  if ((code==='rose' && work.id==='wix-upload-2026-062') ||
+      (code==='skull' && work.id==='wix-upload-2026-065')) return 'prototype';
   if ((code==='tiger' && work.id==='wix-upload-2026-035') ||
       (code==='butterfly' && work.id==='wix-upload-2025-027')) return 'blackwork';
   if(code==='cat' && /noir/i.test(work.title||'')) return 'black';
@@ -444,13 +529,6 @@ export function createMotif(work){
     if(!templates.has(key)) templates.set(key,makeTemplate(code,variant));
     const piece=templates.get(key).clone(), pivot=new THREE.Group();
     pivot.add(piece); group.add(pivot);
-    if(code==='skull' && work.id==='wix-upload-2026-065') {
-      // The reference contains a second skull below the main portrait.
-      const second=templates.get(key).clone();
-      second.scale.multiplyScalar(.48);
-      second.position.set(.86,.03,.36);
-      pivot.add(second);
-    }
     if(i>0){
       const angle=(i-1)*2.40+.47;
       pivot.position.set(Math.cos(angle)*1.62,0,Math.sin(angle)*1.0+.45);

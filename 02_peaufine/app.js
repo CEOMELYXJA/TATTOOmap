@@ -443,7 +443,9 @@ function setupEvents(){
 }
 let touchWasDrag = false;
 function setupTouch(){
-  $('#mobileControls').hidden=false;const joy=$('#joystick'),knob=$('#knob');let joyId=null,lookId=null,lastX=0,lastY=0,startX=0,startY=0;
+  $('#mobileControls').hidden=false;
+  $('#interaction strong').textContent='EXAMINER';
+  const joy=$('#joystick'),knob=$('#knob');let joyId=null,lookId=null,lastX=0,lastY=0,startX=0,startY=0;
   joy.addEventListener('pointerdown',e=>{joyId=e.pointerId;joy.setPointerCapture(e.pointerId);joystickMove(e)});
   joy.addEventListener('pointermove',e=>{if(e.pointerId===joyId)joystickMove(e)});
   const release=e=>{if(e.pointerId!==joyId)return;joyId=null;mobileR=mobileF=0;knob.style.transform='translate(0,0)'};
