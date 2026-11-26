@@ -45,3 +45,17 @@ dialog#albumDialog #albumList a:hover{background:#3a3939}
 #mobileActions button{background:#202022e8}
 @media(max-width:750px){.mark{width:54px;height:39px}}
 @media(max-width:750px){.side-right{width:160px}.mapcard{display:block;padding:10px}.mapcard #minimap{margin-top:6px}.mapbottom{font-size:8px}}
+
+/* The desktop map stays open. On a phone, its native summary toggles it. */
+.mobile-map-toggle{display:none}
+@media(max-width:750px){
+  .mapcard{width:142px;margin-left:auto;padding:0 8px 8px}
+  .mapcard:not([open]){padding-bottom:0}
+  .mobile-map-toggle{display:flex;align-items:center;justify-content:space-between;min-height:44px;cursor:pointer;list-style:none;color:#e7d9b6;font-size:10px;letter-spacing:.08em}
+  .mobile-map-toggle::-webkit-details-marker{display:none}
+  .mobile-map-toggle::after{content:'+';font-size:17px}
+  .mapcard[open] .mobile-map-toggle::after{content:'−'}
+  .mapcard .mapheading{display:none}
+  .mapcard #minimap{display:block;width:100%;height:auto;margin-top:0}
+  .mapcard .mapbottom{font-size:8px}
+}

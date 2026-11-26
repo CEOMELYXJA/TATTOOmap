@@ -93,10 +93,28 @@ function makeGround(){
   groundMaterial.normalScale.set(.42,.42);
   scene.add(new THREE.Mesh(geo,groundMaterial));
 }
-function placeInstanced(geometry,material,count,positionFn){const m=new THREE.InstancedMesh(geometry,material,count);const dummy=new THREE.Object3D();for(let i=0;i<count;i++){const p=positionFn(i);dummy.position.set(p.x,p.y,p.z);dummy.scale.set(p.sx||1,p.sy||1,p.sz||1);dummy.rotation.set(0,p.rot||0,0);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix)}m.instanceMatrix.needsUpdate=true;m.frustumCulled=false;scene.add(m);return m}
+function placeInstanced(geometry,material,count,positionFn){const m=new THREE.InstancedMesh(geometry,material,count);const dummy=new THREE.Object3D();for(let i=0;i<count;i++){const p=positionFn(i);dummy.position.set(p.x,p.y,p.z);dummy.scale.set(p.sx||1,p.sy||1,p.sz||1);dummy.rotation.set(p.rx||0,p.rot||0,p.rz||0);if(p.quaternion)dummy.quaternion.copy(p.quaternion);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix)}m.instanceMatrix.needsUpdate=true;m.frustumCulled=false;scene.add(m);return m}
+
+// Select one isolated leaf or pine sprig from each photographic texture atlas.
+function foliageGeometry(u0,v0,u1,v1) {
+  const geometry = new THREE.PlaneGeometry(1, 1);
+  const uv = geometry.attributes.uv;
+  for (let i=0; i<uv.count; i++) uv.setXY(i, u0 + uv.getX(i)*(u1-u0), v0 + uv.getY(i)*(v1-v0));
+  return geometry;
+}
+function foliageMaterial(colorFile, alphaFile, color) {
+  const material = new THREE.MeshStandardMaterial({color, side:THREE.DoubleSide, roughness:1, alphaTest:.4});
+  material.visible = false;
+  const loader = new THREE.TextureLoader();
+  const root = new URL('../assets/textures/', import.meta.url);
+  let loaded = 0;
+  const done = () => { if (++loaded === 2) { material.visible=true; material.needsUpdate=true; } };
+  loader.load(new URL(colorFile,root).href, texture => { texture.colorSpace=THREE.SRGBColorSpace; material.map=texture; done(); });
+  loader.load(new URL(alphaFile,root).href, texture => { material.alphaMap=texture; done(); });
+  return material;
+}
 function trees(){
   const trunks=new THREE.CylinderGeometry(.17,.36,1,10);trunks.translate(0,.5,0);
-  const crowns=new THREE.ConeGeometry(1.7,5,10);crowns.translate(0,2.55,0);
   const treePositions=[];for(let k=0;k<3;k++){const b=biomes[k];const n=k===0?220:180;for(let i=0;i<n;i++){
     const a=rand()*6.283, r=13+Math.sqrt(rand())*54;
     const x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r;
@@ -113,18 +131,34 @@ function trees(){
   applyTexture(tmat, 'normalMap', 'bark-normal.jpg', [1,2]);
   tmat.normalScale.set(.55,.55);
   placeInstanced(trunks,tmat,treePositions.length,i=>({...treePositions[i],sx:treePositions[i].sx,sy:treePositions[i].sy,sz:treePositions[i].sz}));
-  const nightCrown=new THREE.ConeGeometry(1.8,5,10);nightCrown.translate(0,2.5,0);
-  const crownShapes=[crowns,new THREE.IcosahedronGeometry(2.3,2),nightCrown];
-  const crownColors=[0x345645,0x71815b,0x4c4e5e];
-  for(let k=0;k<3;k++){
-    const group=treePositions.filter(p=>p.biome===k);
-    const material=new THREE.MeshStandardMaterial({color:crownColors[k],roughness:1});
-    placeInstanced(crownShapes[k],material,group.length,i=>{const p=group[i];return {x:p.x,y:p.y+p.sy*(k===1?.80:.54),z:p.z,sx:p.sx*(k===1?1.2:1.45),sy:p.sy*(k===1?.18:.24),sz:p.sz*(k===1?1.2:1.45),rot:p.rot}});
-    if (k!==1) {
-      // A second, narrower tier gives conifers depth without individual meshes.
-      placeInstanced(crownShapes[k],material,group.length,i=>{const p=group[i];return {x:p.x,y:p.y+p.sy*.79,z:p.z,sx:p.sx*1.02,sy:p.sy*.17,sz:p.sz*1.02,rot:p.rot}});
+  // True bark-covered branches, instanced together rather than as separate objects.
+  const limbs=[];
+  const branchesPerTree = isTouch ? 4 : 6;
+  for (const p of treePositions) for (let i=0;i<branchesPerTree;i++) {
+    const angle=p.rot+i*2.399963, height=p.sy*(.44+(i%4)*.115);
+    const length=(p.biome===1?2.25:1.8)*p.sx*(1-(i%4)*.09);
+    const direction=new THREE.Vector3(Math.cos(angle)*length,length*.38,Math.sin(angle)*length);
+    const center=new THREE.Vector3(p.x,height+p.y,p.z).addScaledVector(direction,.5);
+    limbs.push({x:center.x,y:center.y,z:center.z,sx:1,sy:direction.length(),sz:1,quaternion:new THREE.Quaternion().setFromUnitVectors(UP,direction.normalize())});
+  }
+  placeInstanced(new THREE.CylinderGeometry(.055,.16,1,7),tmat,limbs.length,i=>limbs[i]);
+
+  const broadLeaves=[], pineSprigs=[];
+  for (const p of treePositions) {
+    // Limit alpha-tested layers, especially on phones, to keep overdraw modest.
+    const broad=p.biome===1, count=isTouch?(broad?8:7):(broad?14:12);
+    for(let i=0;i<count;i++) {
+      const angle=p.rot+i*2.399963, height=p.sy*(.52+rand()*.43);
+      const spread=(broad?2.25:1.75)*p.sx*(.4+rand()*.6);
+      const target=broad?broadLeaves:pineSprigs;
+      target.push({x:p.x+Math.cos(angle)*spread,y:p.y+height,z:p.z+Math.sin(angle)*spread,
+        sx:(broad?1.05:1.8)*p.sx,sy:(broad?1.8:2.8)*p.sx,sz:1,rot:angle+Math.PI/2,rz:(rand()-.5)*.4});
     }
   }
+  const leafMat=foliageMaterial('leaves.jpg','leaves-alpha.png',0xc2d0a8);
+  const pineMat=foliageMaterial('needles.jpg','needles-alpha.png',0xaec3a7);
+  placeInstanced(foliageGeometry(.01,.50,.16,1),leafMat,broadLeaves.length,i=>broadLeaves[i]);
+  placeInstanced(foliageGeometry(.015,.55,.225,1),pineMat,pineSprigs.length,i=>pineSprigs[i]);
   // Flower meadow: one draw call per palette, not thousands of individual meshes.
   const flowerGeo=new THREE.IcosahedronGeometry(.12,0);
   const paletteFlowers=[0xe2c48d,0xe7d9ca,0x9fb2c6,0xe3aba3];
@@ -194,11 +228,7 @@ function updateAtmosphere(delta){
   renderer.toneMappingExposure=THREE.MathUtils.lerp(renderer.toneMappingExposure,a.exposure,blend);
 }
 function landmarks(){
-  const ringMat=new THREE.MeshStandardMaterial({color:0xa08b66,metalness:.22,roughness:.75});
   for(const b of biomes){
-    const ge=new THREE.TorusGeometry(6.0,.20,8,70);const hoop=new THREE.Mesh(ge,ringMat);hoop.position.set(b.x,7.0+terrain(b.x,b.z),b.z);scene.add(hoop);
-    const baseG=new THREE.CylinderGeometry(.56,.7,7,10);
-    for(const xx of [-6,6]){const post=new THREE.Mesh(baseG,new THREE.MeshStandardMaterial({color:0x394e45,roughness:.9}));post.position.set(b.x+xx,3.5+terrain(b.x+xx,b.z),b.z);scene.add(post)}
     // Curving illuminated trail is a geometry, not a static image.
     const pts=[];for(let i=0;i<=160;i++){const t=i/160*Math.PI*5,r=7+i/160*35,x=b.x+Math.cos(t)*r,z=b.z+Math.sin(t)*r;pts.push(v3(x,terrain(x,z)+.08,z))}
     const curve=new THREE.CatmullRomCurve3(pts);const track=new THREE.Mesh(new THREE.TubeGeometry(curve,520,.055,3,false),new THREE.MeshBasicMaterial({color:b.color,transparent:true,opacity:.64}));scene.add(track);
