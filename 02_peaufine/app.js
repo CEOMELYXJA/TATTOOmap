@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { tattooWorks } from '../assets/tattoos.js';
-import { createMotif, animateMotif } from './motifs.js';
+import { worldWorks } from '../assets/world-catalog.js?v=2025-1';
+import { createMotif, animateMotif } from './motifs.js?v=2025-1';
 
 const $ = (s) => document.querySelector(s);
 const canvas = $('#world');
@@ -31,7 +31,7 @@ const biomes = [
 ];
 // The year comes from the Wix upload record, not the date the tattoo was made.
 // The complete catalogue remains available for future additions.
-const works = tattooWorks.filter(work => work.uploadYear === 2026 || work.id === 'wix-upload-2025-027');
+const works = worldWorks;
 let positions=[];
 let yaw=0, pitch=0, locked=false, active=false;
 let keys={};

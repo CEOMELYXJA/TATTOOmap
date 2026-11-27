@@ -59,3 +59,22 @@ dialog#albumDialog #albumList a:hover{background:#3a3939}
   .mapcard #minimap{display:block;width:100%;height:auto;margin-top:0}
   .mapcard .mapbottom{font-size:8px}
 }
+
+/* One compact, collapsible panel for search and the full map on phones. */
+.explore-toggle{display:none}
+@media(max-width:750px){
+  .side-right{top:auto;bottom:206px;right:14px;width:180px;pointer-events:auto;background:#202022ed;border:1px solid #d5c4a030;backdrop-filter:blur(14px)}
+  .explore-toggle{display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:0 10px;cursor:pointer;list-style:none;color:#e7d9b6;font-size:10px;letter-spacing:.08em}
+  .explore-toggle::-webkit-details-marker{display:none}
+  .explore-toggle::after{content:'+';font-size:17px}
+  .side-right[open] .explore-toggle::after{content:'−'}
+  .side-right .searchcard{padding:8px 10px;margin:0;background:transparent;border:0;border-top:1px solid #d5c4a030;backdrop-filter:none}
+  .side-right .searchcard label{font-size:8px}
+  .side-right .searchline{margin-top:5px}
+  .side-right .searchline input{font-size:12px;padding:6px 0}
+  .side-right .results{max-height:100px}
+  .side-right .mapcard{display:block;width:auto;margin:0;padding:8px 10px;border:0;border-top:1px solid #d5c4a030;background:transparent;backdrop-filter:none}
+  .side-right .mapheading{display:flex}
+  .side-right .mapcard #minimap{display:block;width:100%;height:auto;margin:4px 0 0}
+  .side-right .mapbottom{font-size:8px}
+}
