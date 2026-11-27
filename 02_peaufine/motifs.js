@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { buildSculpture } from './sculptures.js';
+import { build2024 } from './motifs-2024.js?v=2024-1';
 import {
   buildPrototypeRose, buildPrototypeSkulls, rainbowHeart, littleBear,
   elbowWebs, floweringSpray, sixPetals
@@ -462,7 +463,7 @@ function plant(b,code,variant){
 
 const templates = new Map();
 export const supportedModels = Object.freeze((
-  'tiger flower symbols gorilla dragon bird turtle face bear heart rose web snake butterfly skull flame blossom lips dog paw pug betta arrows lotus moon geometry tribal lion cub lettering cat sunflower helmet eye raptor cassette insect palm anglerfish sailboat seahorse fish cross owl music greenfigure swordfish moth scales compass hand plane rope'
+  'tiger flower symbols gorilla dragon bird turtle face bear heart rose web snake butterfly skull flame blossom lips dog paw pug betta arrows lotus moon geometry tribal lion cub lettering cat sunflower helmet eye raptor cassette insect palm anglerfish sailboat seahorse fish cross owl music greenfigure swordfish moth scales compass hand plane rope forest mechanism jellyfish octopus frog vehicle wings scorpion reaper lioness elk anubis windmill'
 ).split(' '));
 function makeTemplate(code,variant) {
   const root=new THREE.Group(), body=new Batch(), parts=[];
@@ -507,7 +508,7 @@ function makeTemplate(code,variant) {
     case 'palm': case 'sunflower': case 'lotus': plant(body,code,variant); break;
     default:
       if(!supportedModels.includes(code)) throw new Error('Motif 3D inconnu : '+code);
-      buildSculpture(code,body);
+      if (!build2024(code,body) && !buildSculpture(code,body)) throw new Error('Motif sans représentation : '+code);
   }
   // Keep black-and-grey tattoo interpretations neutral rather than applying
   // the default bright colours used by the garden variants.
