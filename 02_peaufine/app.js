@@ -102,6 +102,38 @@ function foliageGeometry(u0,v0,u1,v1) {
   for (let i=0; i<uv.count; i++) uv.setXY(i, u0 + uv.getX(i)*(u1-u0), v0 + uv.getY(i)*(v1-v0));
   return geometry;
 }
+
+// A cluster is built out of separate textured leaves facing different directions.
+// One shared geometry can then be instanced across the whole forest.
+function leafClusterGeometry() {
+  const random = rng(8675309);
+  const source = foliageGeometry(.01,.50,.16,1).toNonIndexed();
+  const positions=[], normals=[], uvs=[];
+  const transform=new THREE.Object3D();
+  const leafCount=isTouch?10:14;
+  for(let i=0;i<leafCount;i++) {
+    const angle=i*2.399963;
+    const radius=.18+random()*.7;
+    transform.position.set(Math.cos(angle)*radius,(random()-.5)*1.2,Math.sin(angle)*radius);
+    transform.rotation.set((random()-.5)*1.3,angle,(random()-.5)*1.5);
+    const scale=.55+random()*.42;
+    transform.scale.set(scale,scale,scale);
+    transform.updateMatrix();
+    const leaf=source.clone();
+    leaf.applyMatrix4(transform.matrix);
+    positions.push(...leaf.attributes.position.array);
+    normals.push(...leaf.attributes.normal.array);
+    uvs.push(...leaf.attributes.uv.array);
+    leaf.dispose();
+  }
+  source.dispose();
+  const geometry=new THREE.BufferGeometry();
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  geometry.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));
+  geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));
+  geometry.computeBoundingSphere();
+  return geometry;
+}
 function foliageMaterial(colorFile, alphaFile, color) {
   const material = new THREE.MeshStandardMaterial({color, side:THREE.DoubleSide, roughness:1, alphaTest:.4});
   material.visible = false;
@@ -114,7 +146,7 @@ function foliageMaterial(colorFile, alphaFile, color) {
   return material;
 }
 function trees(){
-  const trunks=new THREE.CylinderGeometry(.25,.48,1,10);trunks.translate(0,.5,0);
+  const trunks=new THREE.CylinderGeometry(.32,.66,1,10);trunks.translate(0,.5,0);
   const treePositions=[];for(let k=0;k<3;k++){const b=biomes[k];const n=k===0?320:260;for(let i=0;i<n;i++){
     const a=rand()*6.283, r=13+Math.sqrt(rand())*54;
     const x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r;
@@ -124,55 +156,37 @@ function trees(){
     if (positions.some(p => Math.hypot(x-p.x,z-p.z) < 10 || Math.hypot(x-p.entryX,z-p.entryZ) < 8)) continue;
     if(Math.abs(x)<7&&z<40&&z>-70)continue;
     if(Math.abs(x-(b.x+20))<5&&Math.abs(z-(b.z+20))<5)continue;
-    treePositions.push({x,y:terrain(x,z),z,biome:k,sx: .85+rand()*.55,sy:11+rand()*7,sz:.85+rand()*.55,rot:rand()*6.28});
+    treePositions.push({x,y:terrain(x,z),z,biome:k,sx:.9+rand()*.55,sy:24+rand()*14,sz:.9+rand()*.55,rot:rand()*6.28});
   }}
   const tmat=new THREE.MeshStandardMaterial({color:0xd8cbb7,roughness:1});
   applyTexture(tmat, 'map', 'bark.jpg', [1,2], true);
   applyTexture(tmat, 'normalMap', 'bark-normal.jpg', [1,2]);
   tmat.normalScale.set(.55,.55);
   placeInstanced(trunks,tmat,treePositions.length,i=>({...treePositions[i],sx:treePositions[i].sx,sy:treePositions[i].sy,sz:treePositions[i].sz}));
-  // Layered, solid crowns keep the forest dense from every viewing angle.
-  // Smaller photographic foliage sits over these volumes rather than floating alone.
-  const pineTrees=treePositions.filter(p=>p.biome!==1);
-  const broadTrees=treePositions.filter(p=>p.biome===1);
-  const pineCrown=new THREE.ConeGeometry(1,1,10);
-  const broadCrown=new THREE.IcosahedronGeometry(1,2);
-  const pineMatBase=new THREE.MeshStandardMaterial({color:0x294835,roughness:1});
-  const broadMatBase=new THREE.MeshStandardMaterial({color:0x4b6541,roughness:1});
-  for (const [height,width,depth] of [[.64,2.9,.37],[.82,2.15,.31]]) {
-    placeInstanced(pineCrown,pineMatBase,pineTrees.length,i=>{const p=pineTrees[i];return {x:p.x,y:p.y+p.sy*height,z:p.z,sx:p.sx*width,sy:p.sy*depth,sz:p.sz*width,rot:p.rot}});
-  }
-  for (const offset of [-1,0,1]) {
-    placeInstanced(broadCrown,broadMatBase,broadTrees.length,i=>{const p=broadTrees[i];return {x:p.x+Math.cos(p.rot)*offset*p.sx,y:p.y+p.sy*(offset===0?.85:.77),z:p.z+Math.sin(p.rot)*offset*p.sz,sx:2.35*p.sx,sy:2.0*p.sx,sz:2.35*p.sz,rot:p.rot}});
-  }
-  // True bark-covered branches, instanced together rather than as separate objects.
-  const limbs=[];
-  const branchesPerTree = isTouch ? 4 : 6;
-  for (const p of treePositions) for (let i=0;i<branchesPerTree;i++) {
-    const angle=p.rot+i*2.399963, height=p.sy*(.44+(i%4)*.115);
-    const length=(p.biome===1?3.0:2.5)*p.sx*(1-(i%4)*.09);
-    const direction=new THREE.Vector3(Math.cos(angle)*length,length*.38,Math.sin(angle)*length);
-    const center=new THREE.Vector3(p.x,height+p.y,p.z).addScaledVector(direction,.5);
-    limbs.push({x:center.x,y:center.y,z:center.z,sx:1,sy:direction.length(),sz:1,quaternion:new THREE.Quaternion().setFromUnitVectors(UP,direction.normalize())});
-  }
-  placeInstanced(new THREE.CylinderGeometry(.055,.16,1,7),tmat,limbs.length,i=>limbs[i]);
-
-  const broadLeaves=[], pineSprigs=[];
+  // Each branch supports multiple clusters of distinct leaves, with no solid crown.
+  const limbs=[],leafClusters=[];
+  const branchesPerTree=isTouch?12:17;
   for (const p of treePositions) {
-    // Limit alpha-tested layers, especially on phones, to keep overdraw modest.
-    const broad=p.biome===1, count=isTouch?(broad?12:10):(broad?20:16);
-    for(let i=0;i<count;i++) {
-      const angle=p.rot+i*2.399963, height=p.sy*(.62+rand()*.32);
-      const spread=(broad?2.8:2.25)*p.sx*(.55+rand()*.45);
-      const target=broad?broadLeaves:pineSprigs;
-      target.push({x:p.x+Math.cos(angle)*spread,y:p.y+height,z:p.z+Math.sin(angle)*spread,
-        sx:(broad?.8:1.15)*p.sx,sy:(broad?1.35:1.8)*p.sx,sz:1,rot:angle+Math.PI/2,rz:(rand()-.5)*.4});
+    for(let i=0;i<branchesPerTree;i++) {
+      const angle=p.rot+i*2.399963;
+      const level=(i%6)/5;
+      const height=p.sy*(.48+level*.40);
+      const length=(5.3-level*1.8)*p.sx;
+      const direction=new THREE.Vector3(Math.cos(angle)*length,length*(.25+level*.15),Math.sin(angle)*length);
+      const center=new THREE.Vector3(p.x,p.y+height,p.z).addScaledVector(direction,.5);
+      limbs.push({x:center.x,y:center.y,z:center.z,sx:1,sy:direction.length(),sz:1,quaternion:new THREE.Quaternion().setFromUnitVectors(UP,direction.clone().normalize())});
+      for(const fraction of [.55,.82,1.04]) {
+        const size=1.35+rand()*.45;
+        leafClusters.push({x:p.x+direction.x*fraction,y:p.y+height+direction.y*fraction,z:p.z+direction.z*fraction,
+          sx:size*p.sx,sy:size,sz:size*p.sz,rot:angle+rand()*1.2,rx:(rand()-.5)*.4,rz:(rand()-.5)*.4});
+      }
     }
+    // A leafy apex closes the canopy without replacing it with an opaque mass.
+    leafClusters.push({x:p.x,y:p.y+p.sy*.97,z:p.z,sx:1.8*p.sx,sy:1.5,sz:1.8*p.sz,rot:p.rot});
   }
-  const leafMat=foliageMaterial('leaves.jpg','leaves-alpha.png',0xc2d0a8);
-  const pineMat=foliageMaterial('needles.jpg','needles-alpha.png',0xaec3a7);
-  placeInstanced(foliageGeometry(.01,.50,.16,1),leafMat,broadLeaves.length,i=>broadLeaves[i]);
-  placeInstanced(foliageGeometry(.04,.60,.175,.94),pineMat,pineSprigs.length,i=>pineSprigs[i]);
+  placeInstanced(new THREE.CylinderGeometry(.045,.20,1,7),tmat,limbs.length,i=>limbs[i]);
+  const leaves=foliageMaterial('leaves.jpg','leaves-alpha.png',0xb8cda5);
+  placeInstanced(leafClusterGeometry(),leaves,leafClusters.length,i=>leafClusters[i]);
   // Flower meadow: one draw call per palette, not thousands of individual meshes.
   const flowerGeo=new THREE.IcosahedronGeometry(.12,0);
   const paletteFlowers=[0xe2c48d,0xe7d9ca,0x9fb2c6,0xe3aba3];
