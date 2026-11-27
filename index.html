@@ -29,7 +29,7 @@
 </div>
 <div class="side-right"><div class="searchcard"><label for="search">CHERCHER UN TATOUAGE <span id="searchCount"></span></label><div class="searchline"><span>⌕</span><input id="search" placeholder="Animal, fleurs, dragon..." autocomplete="off"/></div><div id="results" class="results" hidden></div></div><details class="mapcard" open><summary class="mobile-map-toggle">Carte World</summary><div class="mapheading"><span>World</span><span class="maplegend">● VOUS</span></div><canvas id="minimap" width="230" height="176" title="Choisir un motif sur la carte World" aria-label="Carte World complète. La liste des tatouages propose aussi chaque destination au clavier."></canvas><div class="mapbottom"><span>World</span><span id="biomeLabel" hidden></span><span id="coords">X 0 · Z 0</span></div></details></div>
 <div id="aim"><div class="cross1"></div><div class="cross2"></div></div><div id="interaction" class="interaction" hidden><span>✦</span> <strong>APPUYER SUR E</strong> <span id="nearTitle"></span></div>
-<div class="bottomline"><span>W A S D <i>SE DÉPLACER</i></span><span>SOURIS <i>REGARDER</i></span><span>MAJ <i>COURIR</i></span><span>E <i>EXAMINER</i></span><span>ÉCHAP <i>LIBÉRER</i></span><button id="catalogBtn" aria-controls="results">LISTE DES TATOUAGES</button><button id="importBtn" title="Conserver un catalogue pour une prochaine étape">＋ IMPORTER</button><input id="importInput" type="file" accept=".json,application/json" hidden /></div>
+<div class="bottomline"><span>W A S D <i>SE DÉPLACER</i></span><span>SOURIS <i>REGARDER</i></span><span>MAJ <i>COURIR</i></span><span>E <i>EXAMINER</i></span><span>ÉCHAP <i>LIBÉRER</i></span><button id="catalogBtn" aria-controls="results">LISTE DES TATOUAGES</button></div>
 <div id="mobileControls" hidden><div id="joystick"><div id="knob"></div></div><div id="mobileActions"><button id="mobileLook">GLISSER POUR REGARDER</button><button id="mobileInspect">EXAMINER ✦</button></div></div>
 <div id="intro" class="intro"><div class="intro-panel">
   <div class="intro-tag">MELISA FORTIN</div>
@@ -64,7 +64,7 @@ openAlbum.onclick = async () => {
     list.textContent = 'Le catalogue est indisponible. Rechargez la page pour réessayer.';
   }
 };
-import('./02_peaufine/app.js?v=world-arbres-20261126').catch(error => {
+import('./02_peaufine/app.js?v=world-foret-20261126').catch(error => {
   console.error(error);
   document.querySelector('#introCopy').textContent = 'La forêt 3D ne peut pas s’afficher dans ce navigateur. Vous pouvez parcourir les photos des tatouages.';
   document.querySelector('#enter').hidden = true;
