@@ -5,4 +5,4 @@ import { tattooWorks2024 } from './tattoos-2024.js?v=2024-1';
 const existing = tattooWorks.filter(work =>
   work.uploadYear === 2026 || work.id === 'wix-upload-2025-027');
 export const worldWorks = existing.concat(tattooWorks.filter(work =>
-  work.uploadYear === 2025 && work.id !== 'wix-upload-2025-027')).concat(tattooWorks2024.slice(0, 15));
+  work.uploadYear === 2025 && work.id !== 'wix-upload-2025-027')).concat(tattooWorks2024.slice(0, 30));
