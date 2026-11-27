@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { worldWorks } from '../assets/world-catalog.js?v=2024-3';
-import { createMotif, animateMotif } from './motifs.js?v=animal-motion-1';
+import { createMotif, animateMotif } from './motifs.js?v=animal-motion-2';
 
 const $ = (s) => document.querySelector(s);
 const canvas = $('#world');

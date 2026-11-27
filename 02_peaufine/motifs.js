@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { buildSculpture } from './sculptures.js';
 import { build2024 } from './motifs-2024.js?v=2024-1';
-import { animateAnimal } from './animal-behaviors.js?v=animals-1';
+import { animateAnimal, animalRest } from './animal-behaviors.js?v=animals-2';
 import {
   buildPrototypeRose, buildPrototypeSkulls, rainbowHeart, littleBear,
   elbowWebs, floweringSpray, sixPetals
@@ -94,7 +94,7 @@ function tattooTiger(b,part) {
   for (const side of [-1,1]) {
     for (const x of [-.86,.56]) {
       const z=side*.29;
-      const limb=part('leg',(x<0?-1:1)*side,[x,1.12,z]);
+      const limb=part(x<0?'leg-back':'leg-front',(x<0?-1:1)*side,[x,1.12,z]);
       limb.ball([0,0,0],[.25,.42,.20],fur,[0,0,x<0?-.18:.06]);
       limb.rod([0,-.08,0],[-.04,-.77,0],.18,.115,fur);
       limb.ball([.08,-.92,0],[.25,.14,.19],light);
@@ -159,7 +159,7 @@ function feline(b,part,code,variant) {
   b.ball([.52,1.53,0],[.53,.49,.42],body);
   for (const s of [-1,1]) {
     for (const [x,back] of [[-.69,true],[.59,false]]) {
-      const limb=part('leg',(back?-1:1)*s,[x,1.12,s*(back?.28:.26)]);
+      const limb=part(back?'leg-back':'leg-front',(back?-1:1)*s,[x,1.12,s*(back?.28:.26)]);
       animatedLeg(limb,back,body);
     }
   }
@@ -228,7 +228,7 @@ function dog(b,part,pug,variant) {
   const color=pug?'#c9af86':small?'#ab8365':'#99877e', dark=pug?'#39302e':small?'#624839':'#645c58';
   b.ball([0,1.28,0],[.82,.49,.42],color);
   for(const s of [-1,1]) for(const x of [-.54,.51]) {
-    const limb=part('leg',(x<0?-1:1)*s,[x,1.12,s*.27]);
+    const limb=part(x<0?'leg-back':'leg-front',(x<0?-1:1)*s,[x,1.12,s*.27]);
     animatedLeg(limb,x<0,color);
   }
   b.ball([.67,1.82,0],[.44,.45,.39],color);
@@ -540,6 +540,7 @@ function makeTemplate(code,variant) {
   }
   const core=body.mesh();
   if(!core) throw new Error('Motif sans géométrie : '+code);
+  if (['tiger','lion','cub','cat','dog','pug'].includes(code)) core.userData.motion='animal-body';
   root.add(core);
   for(const {batch,motion,side,pos} of parts){
     const mesh=batch.mesh();
@@ -645,7 +646,7 @@ export function createMotif(work){
     const motion=flora.has(code)||code==='flame'||code==='web'?'sway':flying.has(code)?'hover':breathing.has(code)?'breathe':swimmers.has(code)?'swim':'suspend';
     animated.push({object:pivot,motion,baseY:hover,baseYaw:yaw,phase:(seed%997)*.016+i});
     for(const mesh of piece.children){
-      if(mesh.userData.motion) animated.push({object:mesh,motion:mesh.userData.motion,side:mesh.userData.side,phase:(seed%997)*.016+i});
+      if(mesh.userData.motion) animated.push({object:mesh,motion:mesh.userData.motion,side:mesh.userData.side,phase:(seed%997)*.016+i,restPhase:(seed%997)*.016+i*1.7,code,baseY:mesh.position.y});
     }
   });
   const primaryBounds=new THREE.Box3().setFromObject(group.children[0]);
@@ -661,7 +662,13 @@ export function animateMotif(group,time,visitorPosition){
   for(const p of group.userData.animatedParts){
     const t=time+p.phase, obj=p.object;
     switch(p.motion){
-      case 'leg': obj.rotation.z=p.side*Math.sin(t*3.2)*.28; break;
+      case 'leg-front': case 'leg-back': {
+        const rest=animalRest(p.code,time,p.restPhase);
+        obj.position.y=p.baseY-.29*rest;
+        obj.rotation.z=(p.motion==='leg-back'?-.83:.77)*rest+p.side*Math.sin(t*3.2)*.28*(1-rest);
+        break;
+      }
+      case 'animal-body': obj.position.y=-.29*animalRest(p.code,time,p.restPhase); break;
       case 'fish-body': obj.position.x=.12*Math.sin(t*1.1); obj.position.y=.07*Math.sin(t*1.5); break;
       case 'wing': obj.rotation.z=p.side*Math.sin(t*2.65)*.32; break;
       case 'flutter': obj.rotation.y=p.side*(.38+.42*Math.sin(t*(5.8+proximity*2))); break;
