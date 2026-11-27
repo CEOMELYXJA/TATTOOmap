@@ -23,6 +23,11 @@ export function animalRun(code,time,phase) {
   return ease((cycle-27)/2)*(1-ease((cycle-35)/2));
 }
 
+// A shared gait clock keeps the feet and body in step without reversing phase.
+export function animalStep(time,phase,run,rate=3.2) {
+  return time*rate+phase+run*.7*Math.sin(time*.8+phase);
+}
+
 function nearbyAnimal(group,time) {
   const cached=group.userData.playmate;
   if(cached && cached.parent===group.parent) return cached;
@@ -55,7 +60,7 @@ export function animateAnimal(group,time,visitorPosition) {
     const rest=animalRest(code,t,phase), run=animalRun(code,t,phase);
     const speed=flies?.37:drifts?.22:code==='turtle'?.08:.27;
     const radius=(flies?.7:drifts?.25:creeps?.32:1.15)*(1-rest);
-    const walkPhase=t*speed+phase+run*.65*Math.sin(t*.8);
+    const walkPhase=t*speed+phase+run*.22*Math.sin(t*.65+phase);
     let x=radius*Math.sin(walkPhase), z=radius*.65*Math.sin(walkPhase*.8+phase*.2);
     if(mate && (walks || creeps)) {
       const a=Number(group.userData.artIndex)||0, b=Number(mate.userData.artIndex)||0;
@@ -75,12 +80,21 @@ export function animateAnimal(group,time,visitorPosition) {
     } else if(i>0 && (walks || creeps) && hasLand) {
       x+=.3*Math.sin(t*.8+phase); z+=.25*Math.cos(t*.8+phase);
     }
-    pivot.position.x=base.x+x;
-    pivot.position.z=base.z+z;
+    // Exponential interpolation avoids jumps when an encounter or playmate
+    // appears, disappears or changes, and is independent of frame rate.
+    let motion=pivot.userData.smoothMotion;
+    if(!motion) motion=pivot.userData.smoothMotion={x:base.x,z:base.z,time:t};
+    const dt=Math.max(0,Math.min(.1,t-motion.time));
+    motion.time=t;
+    const blend=t===0 ? 1 : 1-Math.exp(-dt*4.5);
+    motion.x+=(base.x+x-motion.x)*blend;
+    motion.z+=(base.z+z-motion.z)*blend;
+    pivot.position.x=motion.x;
+    pivot.position.z=motion.z;
     if(walks || creeps) {
       const gait=code==='turtle'?1.2:code==='frog'?2.2:3.2;
       const lift=code==='frog'?.13:code==='turtle'?.008:.025+run*.11;
-      const step=t*gait+phase+run*1.7*Math.sin(t*gait);
+      const step=animalStep(t,phase,run,gait);
       const hop=Math.pow(Math.max(0,Math.sin(step)),2);
       pivot.position.y=base.y+lift*(1-rest)*hop;
       pivot.rotation.x=(creeps?.025:.025)*(1-rest)*Math.sin(t*gait*.5+phase);
