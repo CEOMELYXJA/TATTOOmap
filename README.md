@@ -4,7 +4,7 @@ TATTOOmap is a Three.js world built around Melisa Fortin's tattoo portfolio. Exp
 
 ## Current world
 
-The world features 27 photographs identified as tattoos in the media uploaded in 2026, along with the butterfly photograph from the earlier prototype uploaded in 2025. Each is associated with an animated, three-dimensional interpretation and its source photograph. These are stylized artistic interpretations, not automatic reconstructions. Dates in the inventory refer to uploads and do not establish when the tattoos were made. The catalogue and original files are preserved so the world can grow as more works are modelled.
+The world features 27 photographs identified as tattoos in the media uploaded in 2026 and 16 photographs uploaded in 2025. Each is associated with an animated, three-dimensional interpretation and its source photograph. These are stylized artistic interpretations, not automatic reconstructions. Dates in the inventory refer to uploads and do not establish when the tattoos were made. The catalogue and original files are preserved so the world can grow as more works are modelled.
 
 The reviewed inventory contains 125 Wix media files uploaded in 2025–2026. Visual review identified 58 photographs showing tattoos and 67 other media files. These counts refer to files, not necessarily distinct works. Upload dates do not establish when a tattoo was made. See the [visual review](docs/examen-visuel-catalogue-wix.md) and its [CSV](docs/catalogue-wix-examen-visuel-2025-2026.csv) for the individual records and limitations.
 
@@ -24,7 +24,6 @@ On macOS or Linux, run `python3 -m http.server 8765` in the repository root and 
 | Mouse | Look around after entering the world |
 | Shift | Run |
 | E or click | Open the tattoo corresponding to a nearby motif |
-| 1, 2, 3 | Travel between the landscapes |
 | Escape | Release the pointer or close a dialog |
 | Map or tattoo list | Choose a destination |
 
@@ -32,7 +31,7 @@ On touch devices, use the joystick and drag on the scene to look around. The pho
 
 ## Catalogue
 
-The 28 works use entries from `assets/tattoos.js`. The [modelling inventory](docs/suivi-modelisation.csv) connects each of the 58 reviewed tattoo photographs with its identifier, source image, motifs and current status. `IMPORTER_TOUTES_IMAGES_WIX_2025_2026.json`, `assets/gallery.js` and `assets/wix_2025_2026.js` preserve the earlier catalogue data. Photos stay on their existing Wix URLs.
+The 43 works use entries from `assets/tattoos.js`. The [modelling inventory](docs/suivi-modelisation.csv) connects each of the 58 reviewed tattoo photographs with its identifier, source image, motifs and current status. `IMPORTER_TOUTES_IMAGES_WIX_2025_2026.json`, `assets/gallery.js` and `assets/wix_2025_2026.js` preserve the earlier catalogue data. Photos stay on their existing Wix URLs.
 
 The CSV converter in `outils/csv_vers_json.py` can create JSON from a CSV following `outils/gabarit_portfolio.csv` for future catalogue work.
 

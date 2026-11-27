@@ -509,6 +509,16 @@ function makeTemplate(code,variant) {
       if(!supportedModels.includes(code)) throw new Error('Motif 3D inconnu : '+code);
       buildSculpture(code,body);
   }
+  // Keep black-and-grey tattoo interpretations neutral rather than applying
+  // the default bright colours used by the garden variants.
+  if (variant === 'blackwork') {
+    for (const batch of [body, ...parts.map(part => part.batch)]) {
+      for (let i=0; i<batch.colors.length; i+=3) {
+        const value = batch.colors[i]*.2126 + batch.colors[i+1]*.7152 + batch.colors[i+2]*.0722;
+        batch.colors[i] = batch.colors[i+1] = batch.colors[i+2] = value;
+      }
+    }
+  }
   const core=body.mesh();
   if(!core) throw new Error('Motif sans géométrie : '+code);
   root.add(core);
@@ -546,6 +556,21 @@ function variantFor(code,work,seed){
 }
 
 const photoVariants = {
+  'wix-upload-2025-001': {cat:'black',rose:'blackwork',blossom:'blackwork'},
+  'wix-upload-2025-002': {sunflower:'blackwork',flower:'blackwork'},
+  'wix-upload-2025-003': {helmet:'blackwork'},
+  'wix-upload-2025-004': {eye:'blackwork'},
+  'wix-upload-2025-005': {raptor:'blackwork'},
+  'wix-upload-2025-007': {cassette:'blackwork'},
+  'wix-upload-2025-008': {rose:'blackwork',hand:'blackwork',insect:'blackwork'},
+  'wix-upload-2025-009': {tribal:'blackwork'},
+  'wix-upload-2025-010': {geometry:'blackwork'},
+  'wix-upload-2025-011': {palm:'blackwork',plane:'blackwork',flower:'blackwork'},
+  'wix-upload-2025-012': {anglerfish:'blackwork',sailboat:'blackwork'},
+  'wix-upload-2025-013': {anglerfish:'blackwork'},
+  'wix-upload-2025-014': {skull:'blackwork',rose:'blackwork',compass:'blackwork'},
+  'wix-upload-2025-015': {tiger:'blackwork'},
+  'wix-upload-2025-016': {blossom:'blackwork'},
   'wix-upload-2026-040': {heart:'rainbow'},
   'wix-upload-2026-063': {web:'elbows'},
   'wix-upload-2026-066': {blossom:'fine-line'},
@@ -556,6 +581,13 @@ const photoVariants = {
 
 // [x, ground offset, z, scale] arranges companion motifs around the subject.
 const compositions = {
+  'wix-upload-2025-001': {rose:[-.96,0,.32,.54],blossom:[.87,0,-.26,.43]},
+  'wix-upload-2025-002': {flower:[-.85,0,.31,.64]},
+  'wix-upload-2025-008': {hand:[-.72,.18,.25,.53],insect:[.78,1.55,-.12,.35]},
+  'wix-upload-2025-011': {plane:[.95,1.72,-.27,.36],flower:[-.88,0,.38,.48]},
+  'wix-upload-2025-012': {sailboat:[-.92,0,.45,.52]},
+  'wix-upload-2025-014': {rose:[-.97,0,.40,.59],compass:[.90,.65,-.12,.48]},
+  'wix-upload-2025-015': {flower:[-.98,0,.45,.56]},
   'wix-upload-2026-039': {bird:[.08,1.46,-.14,.75],face:[0,.80,0,.54],turtle:[-.10,0,.22,.49]},
   'wix-upload-2026-040': {bear:[0,.57,.24,.60],heart:[0,0,-.31,1.13]},
   'wix-upload-2026-064': {snake:[-1.05,0,.35,.59],butterfly:[.93,1.67,-.03,.34],flower:[1.03,0,.52,.49]},

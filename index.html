@@ -3,7 +3,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#161619"><meta name="description" content="Les tatouages de Melisa Fortin prennent forme dans une forêt à explorer.">
 <title>TATTOOmap — Melisa Fortin</title>
-<link rel="stylesheet" href="./02_peaufine/style.css?v=world-arbres-20261126">
+<link rel="stylesheet" href="./02_peaufine/style.css?v=world-mobile-20261127">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.175.0/build/three.module.js"}}</script>
 <style>
 .mark{display:flex;align-items:center;justify-content:center}
@@ -25,9 +25,13 @@
   <div class="eyebrow"><span class="tiny-line"></span> World</div>
   <h1>TATTOO<br><em>map</em></h1>
   <p class="subtitle">Les tatouages des archives prennent forme dans la forêt. Approchez-vous pour découvrir leurs photographies.</p>
-  <div class="stat-row"><div><b id="totalCount">28</b><small>TATOUAGES</small></div><div class="sep"></div><div><b id="visibleCount">0</b><small>À PROXIMITÉ</small></div><div class="sep"></div><div><b id="fps">—</b><small>FPS</small></div></div>
+  <div class="stat-row"><div><b id="totalCount">43</b><small>TATOUAGES</small></div><div class="sep"></div><div><b id="visibleCount">0</b><small>À PROXIMITÉ</small></div><div class="sep"></div><div><b id="fps">—</b><small>FPS</small></div></div>
 </div>
-<div class="side-right"><div class="searchcard"><label for="search">CHERCHER UN TATOUAGE <span id="searchCount"></span></label><div class="searchline"><span>⌕</span><input id="search" placeholder="Animal, fleurs, dragon..." autocomplete="off"/></div><div id="results" class="results" hidden></div></div><details class="mapcard" open><summary class="mobile-map-toggle">Carte World</summary><div class="mapheading"><span>World</span><span class="maplegend">● VOUS</span></div><canvas id="minimap" width="230" height="176" title="Choisir un motif sur la carte World" aria-label="Carte World complète. La liste des tatouages propose aussi chaque destination au clavier."></canvas><div class="mapbottom"><span>World</span><span id="biomeLabel" hidden></span><span id="coords">X 0 · Z 0</span></div></details></div>
+<details class="side-right" id="explorePanel" open>
+  <summary class="explore-toggle">Recherche et carte</summary>
+  <div class="searchcard"><label for="search">CHERCHER UN TATOUAGE <span id="searchCount"></span></label><div class="searchline"><span>⌕</span><input id="search" placeholder="Animal, fleurs, dragon..." autocomplete="off"/></div><div id="results" class="results" hidden></div></div>
+  <div class="mapcard"><div class="mapheading"><span>World</span><span class="maplegend">● VOUS</span></div><canvas id="minimap" width="230" height="176" title="Choisir un motif sur la carte World" aria-label="Carte World complète. La liste des tatouages propose aussi chaque destination au clavier."></canvas><div class="mapbottom"><span>World</span><span id="biomeLabel" hidden></span><span id="coords">X 0 · Z 0</span></div></div>
+</details>
 <div id="aim"><div class="cross1"></div><div class="cross2"></div></div><div id="interaction" class="interaction" hidden><span>✦</span> <strong>APPUYER SUR E</strong> <span id="nearTitle"></span></div>
 <div class="bottomline"><span>W A S D <i>SE DÉPLACER</i></span><span>SOURIS <i>REGARDER</i></span><span>MAJ <i>COURIR</i></span><span>E <i>EXAMINER</i></span><span>ÉCHAP <i>LIBÉRER</i></span><button id="catalogBtn" aria-controls="results">LISTE DES TATOUAGES</button></div>
 <div id="mobileControls" hidden><div id="joystick"><div id="knob"></div></div><div id="mobileActions"><button id="mobileLook">GLISSER POUR REGARDER</button><button id="mobileInspect">EXAMINER ✦</button></div></div>
@@ -43,6 +47,11 @@
 <div id="help" class="modal" hidden><div class="modal-dim" id="helpDim"></div><article class="help-sheet"><button class="close" id="closeHelp">✕</button><span class="detail-eyebrow">GUIDE D'EXPLORATION</span><h2>Commandes</h2><p>Cliquez dans le monde pour capturer la souris. Avancez avec <b>W A S D</b>, regardez avec la souris, courez avec <b>MAJ</b>. Visez un animal, une fleur ou une sculpture. Cliquez ou appuyez sur <b>E</b> pour voir le tatouage correspondant. <b>ÉCHAP</b> libère la souris.</p><p>Sur téléphone, utilisez le joystick en bas à gauche et glissez du doigt sur la scène pour regarder autour de vous.</p><p>Choisissez un point sur la mini-carte ou un nom dans la liste des tatouages pour rejoindre ce motif.</p><button class="subtle" id="helpOkay">COMPRIS</button></article></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script type="module">
+const explorePanel = document.querySelector('#explorePanel');
+const mobileLayout = matchMedia('(max-width: 750px)');
+explorePanel.open = !mobileLayout.matches;
+mobileLayout.addEventListener?.('change', event => { explorePanel.open = !event.matches; });
+document.querySelector('#catalogBtn').addEventListener('click', () => { explorePanel.open = true; }, true);
 const openAlbum = document.querySelector('#openAlbum');
 const album = document.querySelector('#albumDialog');
 openAlbum.onclick = async () => {
@@ -51,8 +60,8 @@ openAlbum.onclick = async () => {
   if (list.childElementCount) return;
   list.textContent = 'Chargement des tatouages…';
   try {
-    const { tattooWorks } = await import('./assets/tattoos.js');
-    list.replaceChildren(...tattooWorks.filter(work => work.uploadYear === 2026 || work.id === 'wix-upload-2025-027').map(work => {
+    const { worldWorks } = await import('./assets/world-catalog.js?v=2025-1');
+    list.replaceChildren(...worldWorks.map(work => {
       const link = document.createElement('a');
       link.href = work.image;
       link.textContent = work.title;
@@ -64,7 +73,7 @@ openAlbum.onclick = async () => {
     list.textContent = 'Le catalogue est indisponible. Rechargez la page pour réessayer.';
   }
 };
-import('./02_peaufine/app.js?v=foret-majestueuse-20261127').catch(error => {
+import('./02_peaufine/app.js?v=archives-2025-1').catch(error => {
   console.error(error);
   document.querySelector('#introCopy').textContent = 'La forêt 3D ne peut pas s’afficher dans ce navigateur. Vous pouvez parcourir les photos des tatouages.';
   document.querySelector('#enter').hidden = true;
