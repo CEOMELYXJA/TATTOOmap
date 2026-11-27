@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { buildSculpture } from './sculptures.js';
 import { build2024 } from './motifs-2024.js?v=2024-1';
+import { animateAnimal } from './animal-behaviors.js?v=animals-1';
 import {
   buildPrototypeRose, buildPrototypeSkulls, rainbowHeart, littleBear,
   elbowWebs, floweringSpray, sixPetals
@@ -73,10 +74,19 @@ function leg(b,x,z,back,color,thickness=.16) {
   b.ball([x+.08,.13,z],[.21,.12,thickness*.85],color);
 }
 
+// Four separate pivots let the animal move its legs without duplicating the body.
+function animatedLeg(b,back,color,thickness=.16) {
+  const knee=back?-.19:.02;
+  b.ball([0,0,0],[thickness*1.45,.43,thickness*1.18],color,[0,0,back?-.25:.13]);
+  b.rod([0,-.15,0],[knee,-.58,0],thickness,thickness*.72,color);
+  b.rod([knee,-.58,0],[-.02,-.95,0],thickness*.75,thickness*.54,color);
+  b.ball([.08,-.99,0],[.21,.12,thickness*.85],color);
+}
+
 // A black-and-grey tiger inspired by the frontal portrait in 2026-035.
 // The face is sculpted in relief. The markings follow its volume instead of
 // projecting the photograph onto a flat surface.
-function tattooTiger(b) {
+function tattooTiger(b,part) {
   const fur = '#817f7c', light = '#c6c2bb', shade = '#444443';
   // Torso and four weight-bearing legs, viewed most clearly from the side.
   b.ball([-.27,1.42,0],[1.05,.58,.45],fur);
@@ -84,10 +94,11 @@ function tattooTiger(b) {
   for (const side of [-1,1]) {
     for (const x of [-.86,.56]) {
       const z=side*.29;
-      b.ball([x,1.12,z],[.25,.42,.20],fur,[0,0,x<0?-.18:.06]);
-      b.rod([x,1.04,z],[x-.04,.35,z],.18,.115,fur);
-      b.ball([x+.08,.20,z],[.25,.14,.19],light);
-      for(let toe=-1;toe<=1;toe++) b.path([[x+.19,.23,z+toe*.08],[x+.25,.18,z+toe*.08]],.012,shade);
+      const limb=part('leg',(x<0?-1:1)*side,[x,1.12,z]);
+      limb.ball([0,0,0],[.25,.42,.20],fur,[0,0,x<0?-.18:.06]);
+      limb.rod([0,-.08,0],[-.04,-.77,0],.18,.115,fur);
+      limb.ball([.08,-.92,0],[.25,.14,.19],light);
+      for(let toe=-1;toe<=1;toe++) limb.path([[.19,-.89,toe*.08],[.25,-.94,toe*.08]],.012,shade);
     }
     // Tapered black stripes follow the curved flank.
     for(let i=0;i<7;i++) {
@@ -138,8 +149,8 @@ function tattooTiger(b) {
   b.ball([1.25,1.59,0],[.18,.11,.24],light);
 }
 
-function feline(b,code,variant) {
-  if (code==='tiger' && variant==='blackwork') return tattooTiger(b);
+function feline(b,part,code,variant) {
+  if (code==='tiger' && variant==='blackwork') return tattooTiger(b,part);
   const stripes = code==='tiger', mane = code==='lion', kitten = code==='cat', cub = code==='cub';
   // The photographed back piece is black and grey, rather than an orange tiger.
   const body = stripes ? (variant==='blackwork' ? '#8c8984' : '#ce8035') : kitten ? (variant==='black' ? '#35323c' : '#9d806a') : '#bd965d';
@@ -147,7 +158,10 @@ function feline(b,code,variant) {
   b.ball([-.06,1.33,0],[1.02,.51,.41],body);
   b.ball([.52,1.53,0],[.53,.49,.42],body);
   for (const s of [-1,1]) {
-    leg(b,-.69,s*.28,true,body); leg(b,.59,s*.26,false,body);
+    for (const [x,back] of [[-.69,true],[.59,false]]) {
+      const limb=part('leg',(back?-1:1)*s,[x,1.12,s*(back?.28:.26)]);
+      animatedLeg(limb,back,body);
+    }
   }
   b.path([[-.9,1.41,0],[-1.29,1.4,-.05],[-1.56,.91,.04],[-1.89,1.0,.12],[-1.96,1.31,.15]],.094,body);
   if (mane || stripes || cub) b.ball([-1.96,1.31,.15],[.12,.19,.12],mane?'#7e4a2d':ink);
@@ -209,11 +223,14 @@ function feline(b,code,variant) {
   }
 }
 
-function dog(b,pug,variant) {
+function dog(b,part,pug,variant) {
   const small=variant==='small-dog';
   const color=pug?'#c9af86':small?'#ab8365':'#99877e', dark=pug?'#39302e':small?'#624839':'#645c58';
   b.ball([0,1.28,0],[.82,.49,.42],color);
-  for(const s of [-1,1]) for(const x of [-.54,.51]) leg(b,x,s*.27,x<0,color);
+  for(const s of [-1,1]) for(const x of [-.54,.51]) {
+    const limb=part('leg',(x<0?-1:1)*s,[x,1.12,s*.27]);
+    animatedLeg(limb,x<0,color);
+  }
   b.ball([.67,1.82,0],[.44,.45,.39],color);
   for(const s of [-1,1]){
     if(small) {
@@ -329,8 +346,9 @@ function pond(b) {
   }
 }
 
-function fish(b,part,code){
-  pond(b);
+function fish(ground,part,code){
+  pond(ground);
+  const b=part('fish-body',1,[0,0,0]);
   const deep=code==='anglerfish', betta=code==='betta', sword=code==='swordfish';
   const body=deep?'#545868':betta?'#60899b':sword?'#60818d':'#629c97';
   const fin=deep?'#a59080':betta?'#c77ba1':'#789baf', y=.85;
@@ -473,8 +491,8 @@ function makeTemplate(code,variant) {
     return batch;
   }
   switch(code){
-    case 'tiger': case 'lion': case 'cub': case 'cat': feline(body,code,variant); break;
-    case 'dog': case 'pug': dog(body,code==='pug',variant); break;
+    case 'tiger': case 'lion': case 'cub': case 'cat': feline(body,part,code,variant); break;
+    case 'dog': case 'pug': dog(body,part,code==='pug',variant); break;
     case 'gorilla': primateOrBear(body,true); break;
     case 'bear': littleBear(body); break;
     case 'heart':
@@ -620,6 +638,8 @@ export function createMotif(work){
       pivot.position.set(layout[0],layout[1],layout[2]); pivot.scale.setScalar(layout[3]);
     } else if(flying.has(code)) pivot.position.y=.66;
     const hover=pivot.position.y;
+    pivot.userData.animalCode=code;
+    pivot.userData.animalBase={x:pivot.position.x,y:pivot.position.y,z:pivot.position.z};
     const yaw=.2*(i%2?-1:1);
     pivot.rotation.y=yaw;
     const motion=flora.has(code)||code==='flame'||code==='web'?'sway':flying.has(code)?'hover':breathing.has(code)?'breathe':swimmers.has(code)?'swim':'suspend';
@@ -629,6 +649,7 @@ export function createMotif(work){
     }
   });
   const primaryBounds=new THREE.Box3().setFromObject(group.children[0]);
+  group.userData.motionSeed=(seed%997)*.016;
   group.userData.focusHeight=primaryBounds.getCenter(new THREE.Vector3()).y;
   group.userData.animatedParts=animated;
   return group;
@@ -640,9 +661,11 @@ export function animateMotif(group,time,visitorPosition){
   for(const p of group.userData.animatedParts){
     const t=time+p.phase, obj=p.object;
     switch(p.motion){
+      case 'leg': obj.rotation.z=p.side*Math.sin(t*3.2)*.28; break;
+      case 'fish-body': obj.position.x=.12*Math.sin(t*1.1); obj.position.y=.07*Math.sin(t*1.5); break;
       case 'wing': obj.rotation.z=p.side*Math.sin(t*2.65)*.32; break;
       case 'flutter': obj.rotation.y=p.side*(.38+.42*Math.sin(t*(5.8+proximity*2))); break;
-      case 'tail': obj.rotation.y=Math.sin(t*2.8)*.24; break;
+      case 'tail': obj.position.x=-.47+.12*Math.sin(t*1.1); obj.position.y=.85+.07*Math.sin(t*1.5); obj.rotation.y=Math.sin(t*2.8)*.24; break;
       case 'hover': obj.position.y=p.baseY+(.12+proximity*.16)*Math.sin(t*1.4); obj.rotation.y=p.baseYaw+(.09+proximity*.12)*Math.sin(t*.83); break;
       case 'sway': obj.rotation.z=(.036+proximity*.055)*Math.sin(t*1.4); break;
       case 'breathe': obj.rotation.y=p.baseYaw+(.057+proximity*.08)*Math.sin(t*.86); obj.rotation.z=.008*Math.sin(t*1.85); break;
@@ -653,4 +676,5 @@ export function animateMotif(group,time,visitorPosition){
         break;
     }
   }
+  animateAnimal(group,time,visitorPosition);
 }

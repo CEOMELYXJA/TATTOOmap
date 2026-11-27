@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { worldWorks } from '../assets/world-catalog.js?v=2024-3';
-import { createMotif, animateMotif } from './motifs.js?v=2024-1';
+import { createMotif, animateMotif } from './motifs.js?v=animal-motion-1';
 
 const $ = (s) => document.querySelector(s);
 const canvas = $('#world');
@@ -345,8 +345,8 @@ function artworkAt(ndc) {
   let bestDistance = ray.far;
   let found = null;
   for (const group of groups) {
-    focus.copy(group.position);
-    focus.y += group.userData.focusHeight || 1.15;
+    group.children[0].getWorldPosition(focus);
+    focus.y = group.position.y + (group.userData.focusHeight || 1.15);
     const distance = camera.position.distanceTo(focus);
     if (distance < bestDistance && focus.clone().sub(camera.position).dot(ray.ray.direction) > 0 &&
         ray.ray.distanceSqToPoint(focus) < 0.42 ** 2) {
