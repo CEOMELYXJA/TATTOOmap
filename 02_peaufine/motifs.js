@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { buildSculpture } from './sculptures.js';
 import { build2024 } from './motifs-2024.js?v=2024-1';
-import { animateAnimal, animalRest } from './animal-behaviors.js?v=animals-2';
+import { animateAnimal, animalRest, animalRun } from './animal-behaviors.js?v=animals-3';
 import {
   buildPrototypeRose, buildPrototypeSkulls, rainbowHeart, littleBear,
   elbowWebs, floweringSpray, sixPetals
@@ -665,7 +665,8 @@ export function animateMotif(group,time,visitorPosition){
       case 'leg-front': case 'leg-back': {
         const rest=animalRest(p.code,time,p.restPhase);
         obj.position.y=p.baseY-.29*rest;
-        obj.rotation.z=(p.motion==='leg-back'?-.83:.77)*rest+p.side*Math.sin(t*3.2)*.28*(1-rest);
+        const run=animalRun(p.code,time,p.restPhase);
+        obj.rotation.z=(p.motion==='leg-back'?-.83:.77)*rest+p.side*Math.sin(t*3.2+run*1.7*Math.sin(t*3.2))*(.28+run*.17)*(1-rest);
         break;
       }
       case 'animal-body': obj.position.y=-.29*animalRest(p.code,time,p.restPhase); break;

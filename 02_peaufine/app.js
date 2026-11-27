@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { worldWorks } from '../assets/world-catalog.js?v=2024-3';
-import { createMotif, animateMotif } from './motifs.js?v=animal-motion-2';
+import { createMotif, animateMotif } from './motifs.js?v=forest-life-1';
 
 const $ = (s) => document.querySelector(s);
 const canvas = $('#world');
@@ -158,6 +158,25 @@ function trees(){
     if(Math.abs(x-(b.x+20))<5&&Math.abs(z-(b.z+20))<5)continue;
     treePositions.push({x,y:terrain(x,z),z,biome:k,sx:.9+rand()*.55,sy:24+rand()*14,sz:.9+rand()*.55,rot:rand()*6.28});
   }}
+  // Add one neighbour for every existing tree while keeping clearings and paths open.
+  const originalTrees=treePositions.slice();
+  for (const parent of originalTrees) {
+    const b=biomes[parent.biome];
+    let added=false;
+    for (let attempt=0; attempt<160 && !added; attempt++) {
+      const angle=rand()*Math.PI*2;
+      const distance=attempt<100 ? 2.5+rand()*3 : .05+rand()*2.45;
+      const x=parent.x+Math.cos(angle)*distance, z=parent.z+Math.sin(angle)*distance;
+      if (biomeAt(x,z)!==b || Math.abs(x)>90 || Math.abs(z)>85) continue;
+      if (biomes.some(center => Math.hypot(x-center.x,z-center.z) < 14)) continue;
+      if (positions.some(p => Math.hypot(x-p.x,z-p.z) < 10 || Math.hypot(x-p.entryX,z-p.entryZ) < 8)) continue;
+      if (Math.abs(x)<7 && z<40 && z>-70) continue;
+      if (Math.abs(x-(b.x+20))<5 && Math.abs(z-(b.z+20))<5) continue;
+      if (treePositions.some(existing => Math.hypot(x-existing.x,z-existing.z) < 1.5)) continue;
+      treePositions.push({x,y:terrain(x,z),z,biome:parent.biome,sx:.9+rand()*.55,sy:24+rand()*14,sz:.9+rand()*.55,rot:rand()*6.28});
+      added=true;
+    }
+  }
   const tmat=new THREE.MeshStandardMaterial({color:0xd8cbb7,roughness:1});
   applyTexture(tmat, 'map', 'bark.jpg', [1,2], true);
   applyTexture(tmat, 'normalMap', 'bark-normal.jpg', [1,2]);
