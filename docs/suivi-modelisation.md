@@ -2,8 +2,7 @@
 
 Le [tableau de suivi](suivi-modelisation.csv) relie chaque photographie de tatouage à son identifiant, son sujet visible, son année de téléversement, son lien original et les codes de motifs prévus pour la représentation 3D. Il comporte **58 photographies** identifiées lors de l’examen visuel. Chaque ligne représente un fichier de l’inventaire, et une photographie peut contenir plusieurs tatouages ou recouper une autre photographie.
 
-- **`interpretation_a_affiner` — 43 lignes.** Les 27 médias téléversés en 2026 et 16 médias téléversés en 2025 sont associés à des interprétations 3D stylisées dans cette version. Les modèles peuvent être retravaillés individuellement pour mieux correspondre aux photographies.
-- **`hors_version_2026` — 15 lignes.** Ces autres médias téléversés en 2025 restent au catalogue pour les prochaines étapes.
+- **`interpretation_a_affiner` — 58 lignes.** Les 27 médias téléversés en 2026 et 31 médias téléversés en 2025 sont associés à des interprétations 3D stylisées dans cette version. Les modèles peuvent être retravaillés individuellement pour mieux correspondre aux photographies.
 
 Les codes de motifs 3D, en anglais dans le logiciel, décrivent les sujets visuels prévus, par exemple `tiger` pour tigre, `flower` pour fleur et `skull` pour crâne. Plusieurs codes sur une même ligne sont séparés par ` | `. La colonne « motifs visibles » fournit la description en français. Les modèles sont des interprétations et non des reconstructions exactes.
 
