@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { worldWorks } from '../assets/world-catalog.js?v=2024-3';
-import { createMotif, animateMotif } from './motifs.js?v=forest-life-1';
+import { createMotif, animateMotif } from './motifs.js?v=forest-horizon-fluid-1';
 
 const $ = (s) => document.querySelector(s);
 const canvas = $('#world');
@@ -92,6 +92,38 @@ function makeGround(){
   applyTexture(groundMaterial, 'normalMap', 'ground-normal.jpg', [48,48]);
   groundMaterial.normalScale.set(.42,.42);
   scene.add(new THREE.Mesh(geo,groundMaterial));
+  // A low-cost terrain skirt extends under the distant forest. The playable
+  // ground stays detailed; this surrounding mesh is never used for navigation.
+  const ringPositions=[],ringColors=[],ringUvs=[],ringIndices=[];
+  const along=48, across=12, inner=116, outer=350;
+  for(let side=0;side<4;side++){
+    const start=ringPositions.length/3;
+    for(let j=0;j<=across;j++){
+      const half=inner+(outer-inner)*j/across;
+      for(let i=0;i<=along;i++){
+        const edge=(i/along*2-1)*half;
+        const x=side===0?half:side===1?-half:edge;
+        const z=side===2?half:side===3?-half:edge;
+        ringPositions.push(x,terrain(x,z)-.22,z);
+        ringUvs.push((x+120)/240,(z+120)/240);
+        c.setRGB(0,0,0);let total=0;
+        biomes.forEach((b,k)=>{const weight=1/Math.pow(600+(x-b.x)**2+(z-b.z)**2,2);c.r+=biomeColors[k].r*weight;c.g+=biomeColors[k].g*weight;c.b+=biomeColors[k].b*weight;total+=weight});
+        c.multiplyScalar(1/total);ringColors.push(c.r,c.g,c.b);
+        if(i<along&&j<across){const n=start+j*(along+1)+i;ringIndices.push(n,n+along+1,n+1,n+1,n+along+1,n+along+2)}
+      }
+    }
+  }
+  const skirt=new THREE.BufferGeometry();
+  skirt.setAttribute('position',new THREE.Float32BufferAttribute(ringPositions,3));
+  skirt.setAttribute('color',new THREE.Float32BufferAttribute(ringColors,3));
+  skirt.setAttribute('uv',new THREE.Float32BufferAttribute(ringUvs,2));
+  skirt.setIndex(ringIndices);skirt.computeVertexNormals();
+  // Both orientations are present around the square perimeter.
+  const skirtMaterial=groundMaterial.clone();skirtMaterial.side=THREE.DoubleSide;
+  // Keep the same texture callbacks as the foreground material.
+  applyTexture(skirtMaterial,'map','ground.jpg',[48,48],true);
+  applyTexture(skirtMaterial,'normalMap','ground-normal.jpg',[48,48]);
+  scene.add(new THREE.Mesh(skirt,skirtMaterial));
 }
 function placeInstanced(geometry,material,count,positionFn){const m=new THREE.InstancedMesh(geometry,material,count);const dummy=new THREE.Object3D();for(let i=0;i<count;i++){const p=positionFn(i);dummy.position.set(p.x,p.y,p.z);dummy.scale.set(p.sx||1,p.sy||1,p.sz||1);dummy.rotation.set(p.rx||0,p.rot||0,p.rz||0);if(p.quaternion)dummy.quaternion.copy(p.quaternion);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix)}m.instanceMatrix.needsUpdate=true;m.frustumCulled=false;scene.add(m);return m}
 
@@ -206,6 +238,7 @@ function trees(){
   placeInstanced(new THREE.CylinderGeometry(.045,.20,1,7),tmat,limbs.length,i=>limbs[i]);
   const leaves=foliageMaterial('leaves.jpg','leaves-alpha.png',0xb8cda5);
   placeInstanced(leafClusterGeometry(),leaves,leafClusters.length,i=>leafClusters[i]);
+  horizonForest(tmat,leaves);
   // Flower meadow: one draw call per palette, not thousands of individual meshes.
   const flowerGeo=new THREE.IcosahedronGeometry(.12,0);
   const paletteFlowers=[0xe2c48d,0xe7d9ca,0x9fb2c6,0xe3aba3];
@@ -217,6 +250,32 @@ function trees(){
   const blades=new THREE.ConeGeometry(.10,1.0,3);blades.translate(0,.4,0);
   const grass=[];for(let i=0;i<1000;i++){const b=biomes[i%3],a=rand()*6.28,r=8+Math.sqrt(rand())*52,x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r;grass.push({x,y:terrain(x,z),z,sx:.4+rand(),sy:.45+rand()*.8,sz:1,rot:rand()*6.28})}
   placeInstanced(blades,new THREE.MeshStandardMaterial({color:0x739a6f,side:THREE.DoubleSide,roughness:1}),grass.length,i=>grass[i]);
+}
+// A layered belt of simplified but textured trees conceals every map edge.
+// It is outside the playable +/-90 area and uses only two additional draw calls.
+function horizonForest(trunkMaterial,leafMaterial){
+  const random=rng(880167), distantTrunks=[], distantLeaves=[];
+  for(let row=0;row<4;row++){
+    const half=105+row*19, count=36+row*6;
+    for(let side=0;side<4;side++) for(let i=0;i<count;i++){
+      const p=((i+random())/count*2-1)*half;
+      const edge=half+(random()-.5)*8;
+      const x=side===0?edge:side===1?-edge:p;
+      const z=side===2?edge:side===3?-edge:p;
+      const y=terrain(x,z), height=28+random()*15, width=.8+random()*.55;
+      distantTrunks.push({x,y,z,sx:width,sy:height,sz:width,rot:random()*Math.PI*2});
+      for(let crown=0;crown<4;crown++){
+        const angle=crown*2.399963+random()*.5;
+        const spread=crown===3?0:2.0+random();
+        const size=2.6+random()*.9;
+        distantLeaves.push({x:x+Math.cos(angle)*spread,y:y+height*(.70+crown*.085),z:z+Math.sin(angle)*spread,
+          sx:size*width,sy:size*.8,sz:size*width,rot:angle});
+      }
+    }
+  }
+  const trunks=new THREE.CylinderGeometry(.32,.62,1,6);trunks.translate(0,.5,0);
+  placeInstanced(trunks,trunkMaterial,distantTrunks.length,i=>distantTrunks[i]);
+  placeInstanced(leafClusterGeometry(),leafMaterial,distantLeaves.length,i=>distantLeaves[i]);
 }
 // Quiet paths and clustered understory give the landscapes depth without individual draw calls.
 function landscapeDetails(){
