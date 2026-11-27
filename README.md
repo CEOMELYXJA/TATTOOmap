@@ -30,11 +30,11 @@ On macOS or Linux, run `python3 -m http.server 8765` in the repository root and 
 
 On touch devices, use the joystick and drag on the scene to look around. The photo list is also available if WebGL cannot be started.
 
-## Catalogue and imports
+## Catalogue
 
 The 28 works use entries from `assets/tattoos.js`. The [modelling inventory](docs/suivi-modelisation.csv) connects each of the 58 reviewed tattoo photographs with its identifier, source image, motifs and current status. `IMPORTER_TOUTES_IMAGES_WIX_2025_2026.json`, `assets/gallery.js` and `assets/wix_2025_2026.js` preserve the earlier catalogue data. Photos stay on their existing Wix URLs.
 
-The import button stores a valid JSON catalogue locally in the current browser. Imported entries are preserved for future modelling and are not automatically displayed in the world. The CSV converter in `outils/csv_vers_json.py` can create JSON from a CSV following `outils/gabarit_portfolio.csv`.
+The CSV converter in `outils/csv_vers_json.py` can create JSON from a CSV following `outils/gabarit_portfolio.csv` for future catalogue work.
 
 ## Project files
 

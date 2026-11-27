@@ -114,8 +114,8 @@ function foliageMaterial(colorFile, alphaFile, color) {
   return material;
 }
 function trees(){
-  const trunks=new THREE.CylinderGeometry(.17,.36,1,10);trunks.translate(0,.5,0);
-  const treePositions=[];for(let k=0;k<3;k++){const b=biomes[k];const n=k===0?220:180;for(let i=0;i<n;i++){
+  const trunks=new THREE.CylinderGeometry(.25,.48,1,10);trunks.translate(0,.5,0);
+  const treePositions=[];for(let k=0;k<3;k++){const b=biomes[k];const n=k===0?320:260;for(let i=0;i<n;i++){
     const a=rand()*6.283, r=13+Math.sqrt(rand())*54;
     const x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r;
     if (biomeAt(x,z)!==b || Math.abs(x)>90 || Math.abs(z)>85) continue;
@@ -124,19 +124,33 @@ function trees(){
     if (positions.some(p => Math.hypot(x-p.x,z-p.z) < 10 || Math.hypot(x-p.entryX,z-p.entryZ) < 8)) continue;
     if(Math.abs(x)<7&&z<40&&z>-70)continue;
     if(Math.abs(x-(b.x+20))<5&&Math.abs(z-(b.z+20))<5)continue;
-    treePositions.push({x,y:terrain(x,z),z,biome:k,sx: .7+rand()*.72,sy:5+rand()*5,sz:.7+rand()*.72,rot:rand()*6.28});
+    treePositions.push({x,y:terrain(x,z),z,biome:k,sx: .85+rand()*.55,sy:11+rand()*7,sz:.85+rand()*.55,rot:rand()*6.28});
   }}
   const tmat=new THREE.MeshStandardMaterial({color:0xd8cbb7,roughness:1});
   applyTexture(tmat, 'map', 'bark.jpg', [1,2], true);
   applyTexture(tmat, 'normalMap', 'bark-normal.jpg', [1,2]);
   tmat.normalScale.set(.55,.55);
   placeInstanced(trunks,tmat,treePositions.length,i=>({...treePositions[i],sx:treePositions[i].sx,sy:treePositions[i].sy,sz:treePositions[i].sz}));
+  // Layered, solid crowns keep the forest dense from every viewing angle.
+  // Smaller photographic foliage sits over these volumes rather than floating alone.
+  const pineTrees=treePositions.filter(p=>p.biome!==1);
+  const broadTrees=treePositions.filter(p=>p.biome===1);
+  const pineCrown=new THREE.ConeGeometry(1,1,10);
+  const broadCrown=new THREE.IcosahedronGeometry(1,2);
+  const pineMatBase=new THREE.MeshStandardMaterial({color:0x294835,roughness:1});
+  const broadMatBase=new THREE.MeshStandardMaterial({color:0x4b6541,roughness:1});
+  for (const [height,width,depth] of [[.64,2.9,.37],[.82,2.15,.31]]) {
+    placeInstanced(pineCrown,pineMatBase,pineTrees.length,i=>{const p=pineTrees[i];return {x:p.x,y:p.y+p.sy*height,z:p.z,sx:p.sx*width,sy:p.sy*depth,sz:p.sz*width,rot:p.rot}});
+  }
+  for (const offset of [-1,0,1]) {
+    placeInstanced(broadCrown,broadMatBase,broadTrees.length,i=>{const p=broadTrees[i];return {x:p.x+Math.cos(p.rot)*offset*p.sx,y:p.y+p.sy*(offset===0?.85:.77),z:p.z+Math.sin(p.rot)*offset*p.sz,sx:2.35*p.sx,sy:2.0*p.sx,sz:2.35*p.sz,rot:p.rot}});
+  }
   // True bark-covered branches, instanced together rather than as separate objects.
   const limbs=[];
   const branchesPerTree = isTouch ? 4 : 6;
   for (const p of treePositions) for (let i=0;i<branchesPerTree;i++) {
     const angle=p.rot+i*2.399963, height=p.sy*(.44+(i%4)*.115);
-    const length=(p.biome===1?2.25:1.8)*p.sx*(1-(i%4)*.09);
+    const length=(p.biome===1?3.0:2.5)*p.sx*(1-(i%4)*.09);
     const direction=new THREE.Vector3(Math.cos(angle)*length,length*.38,Math.sin(angle)*length);
     const center=new THREE.Vector3(p.x,height+p.y,p.z).addScaledVector(direction,.5);
     limbs.push({x:center.x,y:center.y,z:center.z,sx:1,sy:direction.length(),sz:1,quaternion:new THREE.Quaternion().setFromUnitVectors(UP,direction.normalize())});
@@ -146,19 +160,19 @@ function trees(){
   const broadLeaves=[], pineSprigs=[];
   for (const p of treePositions) {
     // Limit alpha-tested layers, especially on phones, to keep overdraw modest.
-    const broad=p.biome===1, count=isTouch?(broad?8:7):(broad?14:12);
+    const broad=p.biome===1, count=isTouch?(broad?12:10):(broad?20:16);
     for(let i=0;i<count;i++) {
-      const angle=p.rot+i*2.399963, height=p.sy*(.52+rand()*.43);
-      const spread=(broad?2.25:1.75)*p.sx*(.4+rand()*.6);
+      const angle=p.rot+i*2.399963, height=p.sy*(.62+rand()*.32);
+      const spread=(broad?2.8:2.25)*p.sx*(.55+rand()*.45);
       const target=broad?broadLeaves:pineSprigs;
       target.push({x:p.x+Math.cos(angle)*spread,y:p.y+height,z:p.z+Math.sin(angle)*spread,
-        sx:(broad?1.05:1.8)*p.sx,sy:(broad?1.8:2.8)*p.sx,sz:1,rot:angle+Math.PI/2,rz:(rand()-.5)*.4});
+        sx:(broad?.8:1.15)*p.sx,sy:(broad?1.35:1.8)*p.sx,sz:1,rot:angle+Math.PI/2,rz:(rand()-.5)*.4});
     }
   }
   const leafMat=foliageMaterial('leaves.jpg','leaves-alpha.png',0xc2d0a8);
   const pineMat=foliageMaterial('needles.jpg','needles-alpha.png',0xaec3a7);
   placeInstanced(foliageGeometry(.01,.50,.16,1),leafMat,broadLeaves.length,i=>broadLeaves[i]);
-  placeInstanced(foliageGeometry(.015,.55,.225,1),pineMat,pineSprigs.length,i=>pineSprigs[i]);
+  placeInstanced(foliageGeometry(.04,.60,.175,.94),pineMat,pineSprigs.length,i=>pineSprigs[i]);
   // Flower meadow: one draw call per palette, not thousands of individual meshes.
   const flowerGeo=new THREE.IcosahedronGeometry(.12,0);
   const paletteFlowers=[0xe2c48d,0xe7d9ca,0x9fb2c6,0xe3aba3];
@@ -429,34 +443,6 @@ function setupMap() {
   }
 }
 
-// Keep imported catalogues available for later development without placing
-// unreviewed images in the world.
-function setupImport() {
-  const input = $('#importInput');
-  $('#importBtn').onclick = () => input.click();
-  input.onchange = async () => {
-    const file = input.files?.[0];
-    if (!file) return;
-    try {
-      const raw = JSON.parse(await file.text());
-      const entries = Array.isArray(raw) ? raw : raw?.artworks;
-      if (!Array.isArray(entries) || entries.length > 10000) throw new Error('Catalogue invalide ou trop volumineux.');
-      const valid = entries.filter(work => work && typeof work.image === 'string' && /^(https?:\/\/|\.{0,2}\/|images\/|assets\/)/i.test(work.image.trim()));
-      if (!valid.length) throw new Error('Aucune image valide.');
-      const key = 'mft-portfolio-3d-v1';
-      const previous = JSON.parse(localStorage.getItem(key) || '[]');
-      if (!Array.isArray(previous)) throw new Error('Le catalogue sauvegardé doit être vérifié.');
-      const all = new Map([...previous, ...valid].filter(work => work && typeof work.image === 'string').map(work => [work.image, work]));
-      localStorage.setItem(key, JSON.stringify([...all.values()]));
-      showToast('Catalogue sauvegardé. Il pourra être intégré à une prochaine mise à jour.');
-    } catch (error) {
-      showToast(`Importation impossible : ${error.message}`);
-    } finally {
-      input.value = '';
-    }
-  };
-}
-
 function setupEvents(){
   const lockPointer = () => canvas.requestPointerLock?.()?.catch(() => {});
   $('#enter').disabled = false;
@@ -498,7 +484,6 @@ function setupEvents(){
   $('#mobileInspect').onclick=()=>inspect(getNearest());
   addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,isTouch?1.3:1.75))});
   setupMap();
-  setupImport();
   if(isTouch)setupTouch();
 }
 let touchWasDrag = false;
