@@ -1,4 +1,4 @@
-import { addOrganicPortrait } from './portrait-detail.js?v=organic-3';
+import { addOrganicPortrait } from './portrait-detail.js?v=organic-4';
 
 // Three-dimensional ornaments for tattoos with symbolic, human or object motifs.
 // Coordinates are local to a motif, facing +Z. The shared builder batches the pieces.

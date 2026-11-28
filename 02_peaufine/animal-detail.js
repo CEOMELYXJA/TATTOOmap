@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+const touchDetail=typeof globalThis.matchMedia==='function' && globalThis.matchMedia('(pointer: coarse)').matches;
 
 // Small details are baked into the existing body / articulated part batches.
 // They add no new draw calls and are never a substitute for the original photo.
@@ -90,7 +91,9 @@ function organicGeometry(kind) {
   if(kind==='lioness') bounds=[-.84,.40,-.62,1.68,1.72,1.30,25,27,20];
   if(kind==='scorpion') bounds=[-.51,.18,-.80,1.02,.64,1.82,19,13,32];
   if(['fish','betta','anglerfish','swordfish'].includes(kind)) bounds=[-1.10,.25,-.43,2.15,1.25,.86,31,19,14];
-  const [x0,y0,z0,wx,wy,wz,nx,ny,nz]=bounds;
+  let [x0,y0,z0,wx,wy,wz,nx,ny,nz]=bounds;
+  // Lower sampling density on touch devices keeps smooth normals and reduces memory.
+  if(touchDetail){nx=Math.max(12,Math.round(nx*.76));ny=Math.max(12,Math.round(ny*.76));nz=Math.max(12,Math.round(nz*.76));}
   const dx=wx/nx,dy=wy/ny,dz=wz/nz, sx=nx+1,sy=ny+1,sz=nz+1;
   const values=new Float32Array(sx*sy*sz), index=(x,y,z)=>(z*sy+y)*sx+x;
   const field=(x,y,z)=>{
@@ -207,6 +210,7 @@ function hash(value) {
 // Short individual, tapered filaments follow an ellipsoid rather than forming
 // a visible outer shell. Their triangles are merged with the animal body.
 function coat(b, centre, radii, shades, seed, count=160, floor=-Infinity, forwardLimit=Infinity) {
+  if(touchDetail) count=Math.ceil(count*.7);
   const rnd=random(seed), groups=shades.map(()=>({p:[],i:[]}));
   for(let k=0;k<count;k++) {
     const u=rnd()*1.80-.90, around=rnd()*Math.PI*2, v=Math.sqrt(1-u*u);

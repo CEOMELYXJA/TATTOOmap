@@ -1,4 +1,4 @@
-import { addOrganicBody } from './animal-detail.js?v=organic-3';
+import { addOrganicBody } from './animal-detail.js?v=organic-4';
 // Volumetric interpretations of subjects identified in the 2024 archive.
 // Built with the shared geometry batcher so identical motifs can be reused.
 const ink = 0x29292c;

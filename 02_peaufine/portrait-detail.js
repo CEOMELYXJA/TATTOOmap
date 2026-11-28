@@ -1,9 +1,10 @@
 import * as THREE from 'three';
+const touchDetail=typeof globalThis.matchMedia==='function' && globalThis.matchMedia('(pointer: coarse)').matches;
 
 // Closed, smoothly blended portrait volumes retain the original subject's
 // per-tattoo proportions. Cavities are cut into the same surface as the bone.
 export function addOrganicPortrait(batch, shapes, cavities, colour, options={}) {
-  const nx=25, ny=29, nz=21, margin=.12;
+  const nx=touchDetail?19:25, ny=touchDetail?22:29, nz=touchDetail?16:21, margin=.12;
   const low=axis=>Math.min(...shapes.map(shape=>shape[axis]-shape[axis+3]))-margin;
   const high=axis=>Math.max(...shapes.map(shape=>shape[axis]+shape[axis+3]))+margin;
   const x0=low(0),y0=low(1),z0=low(2),dx=(high(0)-x0)/nx,dy=(high(1)-y0)/ny,dz=(high(2)-z0)/nz;

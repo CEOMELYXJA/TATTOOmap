@@ -1,9 +1,10 @@
 import * as THREE from 'three';
+const touchDetail=typeof globalThis.matchMedia==='function' && globalThis.matchMedia('(pointer: coarse)').matches;
 
 // Rounded, genuinely three-dimensional petal shells. Three short bands allow
 // a soft colour transition without a texture, transparent card or extra draw.
 function makePetalBand(from,to) {
-  const vertices=[], normals=[], indices=[], rows=4, columns=8;
+  const vertices=[], normals=[], indices=[], rows=touchDetail?3:4, columns=touchDetail?6:8;
   function point(t,u,back) {
     const width=Math.pow(Math.sin(Math.PI*t),.68)*(.84+.16*t);
     const bowl=(1-u*u)*Math.sin(Math.PI*t);
@@ -38,7 +39,7 @@ const petals=[makePetalBand(0,1/3),makePetalBand(1/3,2/3),makePetalBand(2/3,1)];
 
 // A folded leaf shell with a raised centre, built along local +Y.
 function makeLeaf() {
-  const p=[],ix=[],rows=10,cols=6;
+  const p=[],ix=[],rows=touchDetail?7:10,cols=touchDetail?4:6;
   for(let back=0;back<2;back++) for(let y=0;y<=rows;y++) {
     const t=y/rows,w=Math.pow(Math.sin(Math.PI*t),.82);
     for(let x=0;x<=cols;x++) {
