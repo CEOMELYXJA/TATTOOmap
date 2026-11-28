@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { buildSculpturalFlame } from './flame-detail.js?v=organic-1';
-import { buildDetailedPlant, addSculpturalDetails } from './botanical-detail.js?v=detail-3';
-import { addOrganicBody, enhanceAnimal } from './animal-detail.js?v=organic-3';
-import { buildSculpture } from './sculptures.js?v=organic-2';
-import { build2024 } from './motifs-2024.js?v=organic-3';
+import { buildDetailedPlant, addSculpturalDetails } from './botanical-detail.js?v=detail-4';
+import { addOrganicBody, enhanceAnimal } from './animal-detail.js?v=organic-4';
+import { buildSculpture } from './sculptures.js?v=organic-3';
+import { build2024 } from './motifs-2024.js?v=organic-4';
 import { animateAnimal, animalRest, animalRun, animalStep } from './animal-behaviors.js?v=animals-6';
 import {
   buildPrototypeRose, buildPrototypeSkulls, rainbowHeart, littleBear,
   elbowWebs, floweringSpray, sixPetals
-} from './prototype-details.js?v=organic-3';
+} from './prototype-details.js?v=organic-4';
 
 // Each stationary body or animated limb is one draw, including all of its colours.
 // Recipes are baked once, then the geometry is shared between encounters.

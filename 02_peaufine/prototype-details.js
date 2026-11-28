@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { addOrganicBody } from './animal-detail.js?v=organic-3';
-import { addOrganicPortrait } from './portrait-detail.js?v=organic-3';
+import { addOrganicBody } from './animal-detail.js?v=organic-4';
+import { addOrganicPortrait } from './portrait-detail.js?v=organic-4';
 
 // Keep the characteristic silhouettes of the 2026 compositions when seen
 // from the trail. All curves are actual geometry and can be viewed from behind.

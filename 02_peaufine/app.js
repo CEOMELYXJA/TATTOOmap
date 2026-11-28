@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { createSkyEffects } from './sky-effects.js?v=aurora-1';
 import { createCampfire } from './campfire.js?v=campfire-1';
 import { worldWorks } from '../assets/world-catalog.js?v=2024-3';
-import { createMotif, animateMotif } from './motifs.js?v=organic-detail-3';
+import { createMotif, animateMotif } from './motifs.js?v=organic-detail-4';
 
 const $ = (s) => document.querySelector(s);
 const canvas = $('#world');
