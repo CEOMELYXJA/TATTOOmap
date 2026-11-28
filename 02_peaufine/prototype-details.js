@@ -201,17 +201,18 @@ export function buildPrototypeRose(b) {
   }
 }
 
-function facialBone(b, origin, size, light) {
-  const p = (x,y,z) => [origin[0]+x*size,origin[1]+y*size,origin[2]+z*size];
+function facialBone(b, origin, size, light, character=0) {
+  const width=[1,.88,1.10][character], eyeWidth=[.20,.17,.23][character];
+  const p = (x,y,z) => [origin[0]+x*size*width,origin[1]+y*size,origin[2]+z*size];
   const skin = light ? '#d2b8a5' : '#a98d80';
   const shadow = '#332d32';
   const dark = '#1d1d24';
   // Cranial dome plus a shaped facial mask, projecting in depth.
-  b.ball(p(0,1.58,-.03),[.55*size,.71*size,.46*size],skin,[0,0,-.04]);
-  b.ball(p(0,1.04,.10),[.45*size,.45*size,.36*size],skin);
-  b.ball(p(0,.75,.10),[.37*size,.22*size,.31*size],skin);
+  b.ball(p(0,1.58,-.03),[.55*size*width,.71*size,.46*size],skin,[0,0,-.04]);
+  b.ball(p(0,1.04,.10),[.45*size*width,.45*size,.36*size],skin);
+  b.ball(p(0,.75,.10),[.37*size*width,.22*size,.31*size],skin);
   for (const side of [-1, 1]) {
-    b.ball(p(side*.25,1.32,.40),[.20*size,.22*size,.075*size],dark,[0,0,-side*.12]);
+    b.ball(p(side*.25,1.32,.40),[eyeWidth*size,(.22-character*.015)*size,.075*size],dark,[0,0,-side*(.12+character*.06)]);
     b.path([p(side*.07,1.54,.42),p(side*.25,1.58,.43),p(side*.42,1.48,.34)],
       .048*size,'#8b716a');
     b.rod(p(side*.18,1.08,.44),p(side*.44,1.16,.29),.055*size,.025*size,'#886e67');
@@ -219,7 +220,7 @@ function facialBone(b, origin, size, light) {
   }
   b.poly([[-.13,0],[0,.25],[.13,0]].map(([x,y])=>[x*size,y*size]), .035*size,
     p(0,.99,.44), dark);
-  for(let tooth=-4;tooth<=4;tooth++){
+  for(let tooth=-4+character;tooth<=4-character;tooth++){
     const x=tooth*.073;
     b.box(p(x,.79,.39),[.055*size,.16*size,.075*size], light?'#ead4bf':'#ccb3a0',
       [0,0,tooth*.035]);
@@ -235,7 +236,7 @@ function facialBone(b, origin, size, light) {
 
 export function buildPrototypeSkulls(b) {
   // Three staggered skulls follow the photographed composition.
-  facialBone(b, [.47,1.43,0], .77, false);
-  facialBone(b, [-.53,.64,.04], .62, false);
-  facialBone(b, [.40,0,.17], .76, true);
+  facialBone(b, [.47,1.43,0], .77, false, 0);
+  facialBone(b, [-.53,.64,.04], .62, false, 1);
+  facialBone(b, [.40,0,.17], .76, true, 2);
 }
