@@ -78,3 +78,13 @@ dialog#albumDialog #albumList a:hover{background:#3a3939}
   .side-right .mapcard #minimap{display:block;width:100%;height:auto;margin:4px 0 0}
   .side-right .mapbottom{font-size:8px}
 }
+
+/* Keep the tattoo points and visitor marker in a tightly framed map. */
+.mapcard{width:196px;margin-left:auto;padding:3px}
+.mapcard .mapheading,.mapcard .mapbottom{display:none}
+.mapcard #minimap{display:block;width:100%;height:auto;margin:0}
+@media(max-width:750px){
+  .side-right .mapcard{width:auto;margin:0;padding:3px;border:0;border-top:1px solid #d5c4a030}
+  .side-right .mapheading,.side-right .mapbottom{display:none}
+  .side-right .mapcard #minimap{width:100%;height:auto;margin:0}
+}

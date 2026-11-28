@@ -43,7 +43,7 @@ const ray = new THREE.Raycaster();
 const aim = new THREE.Vector2();
 const focus = new THREE.Vector3();
 // Fixed world coordinates keep every artwork visible as the visitor moves.
-const mapScale = Math.min((230 - 24) / 180, (176 - 24) / 180);
+const mapScaleX = (190 - 16) / 180, mapScaleZ = (112 - 16) / 180;
 const prefersReducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 let menuOpen = false;
 
@@ -137,12 +137,12 @@ function foliageGeometry(u0,v0,u1,v1) {
 
 // A cluster is built out of separate textured leaves facing different directions.
 // One shared geometry can then be instanced across the whole forest.
-function leafClusterGeometry() {
+function leafClusterGeometry(preferredCount) {
   const random = rng(8675309);
   const source = foliageGeometry(.01,.50,.16,1).toNonIndexed();
   const positions=[], normals=[], uvs=[];
   const transform=new THREE.Object3D();
-  const leafCount=isTouch?10:14;
+  const leafCount=preferredCount ?? (isTouch?10:14);
   for(let i=0;i<leafCount;i++) {
     const angle=i*2.399963;
     const radius=.18+random()*.7;
@@ -215,13 +215,13 @@ function trees(){
   tmat.normalScale.set(.55,.55);
   placeInstanced(trunks,tmat,treePositions.length,i=>({...treePositions[i],sx:treePositions[i].sx,sy:treePositions[i].sy,sz:treePositions[i].sz}));
   // Each branch supports multiple clusters of distinct leaves, with no solid crown.
-  const limbs=[],leafClusters=[];
+  const limbs=[],leafClusters=[], understoryRandom=rng(440591);
   const branchesPerTree=isTouch?12:17;
   for (const p of treePositions) {
     for(let i=0;i<branchesPerTree;i++) {
       const angle=p.rot+i*2.399963;
       const level=(i%6)/5;
-      const height=p.sy*(.48+level*.40);
+      const height=p.sy*(.20+level*.70);
       const length=(5.3-level*1.8)*p.sx;
       const direction=new THREE.Vector3(Math.cos(angle)*length,length*(.25+level*.15),Math.sin(angle)*length);
       const center=new THREE.Vector3(p.x,p.y+height,p.z).addScaledVector(direction,.5);
@@ -231,6 +231,16 @@ function trees(){
         leafClusters.push({x:p.x+direction.x*fraction,y:p.y+height+direction.y*fraction,z:p.z+direction.z*fraction,
           sx:size*p.sx,sy:size,sz:size*p.sz,rot:angle+rand()*1.2,rx:(rand()-.5)*.4,rz:(rand()-.5)*.4});
       }
+    }
+    // Low foliage grows around trunks, but stays outside every artwork and entrance.
+    // It fills the forest between the ground and the tall canopy without flat panels.
+    for(let i=0;i<4;i++) {
+      const angle=p.rot+i*2.399963, distance=1.0+understoryRandom()*2.4;
+      const x=p.x+Math.cos(angle)*distance, z=p.z+Math.sin(angle)*distance;
+      if (positions.some(work => Math.hypot(x-work.x,z-work.z)<7.5 || Math.hypot(x-work.entryX,z-work.entryZ)<6)) continue;
+      if (Math.abs(x)<7 && z<40 && z>-70) continue;
+      const size=1.8+understoryRandom()*.8;
+      leafClusters.push({x,y:terrain(x,z)+1.7+i*.95,z,sx:size,sy:size*.9,sz:size,rot:angle});
     }
     // A leafy apex closes the canopy without replacing it with an opaque mass.
     leafClusters.push({x:p.x,y:p.y+p.sy*.97,z:p.z,sx:1.8*p.sx,sy:1.5,sz:1.8*p.sz,rot:p.rot});
@@ -251,12 +261,12 @@ function trees(){
   const grass=[];for(let i=0;i<1000;i++){const b=biomes[i%3],a=rand()*6.28,r=8+Math.sqrt(rand())*52,x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r;grass.push({x,y:terrain(x,z),z,sx:.4+rand(),sy:.45+rand()*.8,sz:1,rot:rand()*6.28})}
   placeInstanced(blades,new THREE.MeshStandardMaterial({color:0x739a6f,side:THREE.DoubleSide,roughness:1}),grass.length,i=>grass[i]);
 }
-// A layered belt of simplified but textured trees conceals every map edge.
-// It is outside the playable +/-90 area and uses only two additional draw calls.
+// A deep belt of full-height trees continues beyond the walkable map. Low and
+// middle foliage matters here: tall bare trunks alone leave a visible empty horizon.
 function horizonForest(trunkMaterial,leafMaterial){
-  const random=rng(880167), distantTrunks=[], distantLeaves=[];
+  const random=rng(880167), distantTrunks=[], distantLeaves=[], distantBranches=[];
   for(let row=0;row<4;row++){
-    const half=105+row*19, count=36+row*6;
+    const half=105+row*19, count=54+row*8;
     for(let side=0;side<4;side++) for(let i=0;i<count;i++){
       const p=((i+random())/count*2-1)*half;
       const edge=half+(random()-.5)*8;
@@ -267,15 +277,32 @@ function horizonForest(trunkMaterial,leafMaterial){
       for(let crown=0;crown<4;crown++){
         const angle=crown*2.399963+random()*.5;
         const spread=crown===3?0:2.0+random();
-        const size=2.6+random()*.9;
+        const size=3.1+random()*1.2;
         distantLeaves.push({x:x+Math.cos(angle)*spread,y:y+height*(.70+crown*.085),z:z+Math.sin(angle)*spread,
-          sx:size*width,sy:size*.8,sz:size*width,rot:angle});
+          sx:size*width,sy:size*.85,sz:size*width,rot:angle});
+      }
+      // Stagger clusters from eye level to the crown. Their overlapping leaf
+      // geometry blocks the pale horizon while retaining visible depth and gaps.
+      for(let layer=0;layer<6;layer++){
+        const angle=layer*2.399963+random()*.7;
+        const spread=1.4+random()*2.4, size=3.8+random()*1.8;
+        const level=2.2+layer*3.0+random()*1.0;
+        distantLeaves.push({x:x+Math.cos(angle)*spread,y:y+level,z:z+Math.sin(angle)*spread,
+          sx:size*width,sy:size*.82,sz:size*width,rot:angle});
+        if(layer%2===1){
+          const direction=new THREE.Vector3(Math.cos(angle)*(spread+1),1.4,Math.sin(angle)*(spread+1));
+          const center=new THREE.Vector3(x,y+level-1,z).addScaledVector(direction,.5);
+          distantBranches.push({x:center.x,y:center.y,z:center.z,sx:1,sy:direction.length(),sz:1,
+            quaternion:new THREE.Quaternion().setFromUnitVectors(UP,direction.normalize())});
+        }
       }
     }
   }
   const trunks=new THREE.CylinderGeometry(.32,.62,1,6);trunks.translate(0,.5,0);
   placeInstanced(trunks,trunkMaterial,distantTrunks.length,i=>distantTrunks[i]);
-  placeInstanced(leafClusterGeometry(),leafMaterial,distantLeaves.length,i=>distantLeaves[i]);
+  placeInstanced(new THREE.CylinderGeometry(.04,.15,1,5),trunkMaterial,distantBranches.length,i=>distantBranches[i]);
+  // A lighter shared leaf cluster offsets the much denser, farther backdrop.
+  placeInstanced(leafClusterGeometry(8),leafMaterial,distantLeaves.length,i=>distantLeaves[i]);
 }
 // Quiet paths and clustered understory give the landscapes depth without individual draw calls.
 function landscapeDetails(){
@@ -468,7 +495,7 @@ function drawMiniMap(){
   ctx.clearRect(0,0,w,h);ctx.fillStyle='rgba(7,26,24,.65)';ctx.fillRect(0,0,w,h);
   for(let x=0;x<=w;x+=23){ctx.strokeStyle='rgba(183,200,176,.09)';ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}
   for(let y=0;y<=h;y+=22){ctx.strokeStyle='rgba(183,200,176,.09)';ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
-  const scale=mapScale,tx=x=>w/2+x*scale,ty=z=>h/2+z*scale;
+  const tx=x=>w/2+x*mapScaleX,ty=z=>h/2+z*mapScaleZ;
   for(let i=0;i<positions.length;i++){const p=positions[i],x=tx(p.x),y=ty(p.z);if(x<0||x>w||y<0||y>h)continue;ctx.fillStyle='rgba(233,215,164,.82)';ctx.beginPath();ctx.arc(x,y,2.4,0,Math.PI*2);ctx.fill()}
   ctx.save();ctx.translate(tx(camX),ty(camZ));ctx.rotate(-yaw);ctx.fillStyle='#d0efae';ctx.beginPath();ctx.moveTo(0,-7);ctx.lineTo(-5,5);ctx.lineTo(5,5);ctx.closePath();ctx.fill();ctx.restore();
 }
@@ -510,12 +537,12 @@ function setupMap() {
   const map = $('#minimap');
   map.onclick = event => {
     const bounds = map.getBoundingClientRect();
-    const x = ((event.clientX - bounds.left) / bounds.width - 0.5) * map.width / mapScale;
-    const z = ((event.clientY - bounds.top) / bounds.height - 0.5) * map.height / mapScale;
+    const x = ((event.clientX - bounds.left) / bounds.width - 0.5) * map.width / mapScaleX;
+    const z = ((event.clientY - bounds.top) / bounds.height - 0.5) * map.height / mapScaleZ;
     let target;
-    let threshold = 9 / mapScale;
+    let threshold = 9;
     for (const point of positions) {
-      const distance = Math.hypot(point.x - x, point.z - z);
+      const distance = Math.hypot((point.x - x) * mapScaleX, (point.z - z) * mapScaleZ);
       if (distance < threshold) { target = point; threshold = distance; }
     }
     if (target) {
