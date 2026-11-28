@@ -13,15 +13,33 @@ function heart(b) {
   b.poly(outline,.25,center,coral);
 }
 
-function skull(b) {
-  b.ball([0,1.45,0],[.72,.78,.58],pale);
-  b.ball([0,.9,.13],[.52,.43,.43],pale);
+// Stable proportions give each tattoo its own sculpted face rather than
+// cloning one shared portrait. The same work always produces the same model.
+function identityFactors(seed) {
+  let value=(Number(seed) || 1) >>> 0;
+  return () => { value=(Math.imul(value,1664525)+1013904223)>>>0; return value/4294967296; };
+}
+
+function skull(b,identitySeed) {
+  const rand=identityFactors(identitySeed);
+  const width=.64+rand()*.17, height=.71+rand()*.15;
+  const jaw=.44+rand()*.13, eyeX=.26+rand()*.10, eyeY=1.36+rand()*.09;
+  const eyeW=.18+rand()*.08, eyeH=.18+rand()*.10, teeth=5+Math.floor(rand()*3);
+  b.ball([0,1.45,0],[width,height,.54+rand()*.08],pale);
+  b.ball([0,.9,.13],[jaw,.37+rand()*.09,.43],pale);
   for(const side of [-1,1]) {
-    b.ball([side*.31,1.39,.48],[.23,.24,.12],ink);
-    b.ball([side*.53,1.04,.31],[.16,.16,.18],pale);
+    b.ball([side*eyeX,eyeY,.48],[eyeW,eyeH,.12],ink,[0,0,side*(rand()-.5)*.24]);
+    b.ball([side*(jaw+.01),1.04,.31],[.12+rand()*.06,.14+rand()*.05,.18],pale);
   }
-  b.poly([[-.11,0],[.11,0],[0,.23]],.05,[0,.92,.54],ink);
-  for(let i=-2;i<=2;i++) b.box([i*.16,.72,.45],[.125,.22,.13],pale);
+  const nose=.075+rand()*.07;
+  b.poly([[-nose,0],[nose,0],[0,.18+rand()*.1]],.05,[0,.92,.54],ink);
+  for(let i=0;i<teeth;i++) {
+    const x=(i-(teeth-1)/2)*(.73/teeth);
+    b.box([x,.71,.46],[.62/teeth,.16+rand()*.06,.13],pale);
+  }
+  // Fine bone fissures vary with the tattoo, without adding flat photo panels.
+  const side=rand()>.5?1:-1, x=side*(.12+rand()*.21), depth=.49;
+  b.path([[x,1.95,depth],[x+side*.07,1.84,depth+.025],[x+side*.02,1.74,depth+.04]],.012,ink);
 }
 
 function web(b) {
@@ -40,15 +58,30 @@ function eye(b) {
   b.path([[.31,.74,0],[.38,.45,.02],[.78,.3,.01],[.87,.5,0]],.055,brass);
 }
 
-function face(b,green=false) {
+function face(b,green=false,identitySeed) {
   const skin=green?0x769742:0xb98e6e;
-  b.ball([0,1.22,.02],[.58,.78,.41],skin);
-  b.ball([0,1.16,.42],[.12,.21,.12],skin);
-  for(const s of [-1,1]) {
-    b.ball([s*.23,1.43,.36],[.12,.065,.06],green?0xe4c874:ink);
-    b.path([[s*.07,1.52,.41],[s*.29,1.64,.36],[s*.47,1.61,.22]],.06,ink);
+  const rand=identityFactors(identitySeed);
+  const width=.50+rand()*.16, height=.70+rand()*.17;
+  const eyeX=.19+rand()*.09, eyeY=1.38+rand()*.09, mouthY=.91+rand()*.10;
+  const hairColor=[0x352f30,0x49403a,0x61524b,0x292a2c][Math.floor(rand()*4)];
+  const hairStyle=Math.floor(rand()*4);
+  if(!green) {
+    // Individual silhouettes and hair parting make portraits distinct from afar.
+    b.ball([0,1.56,-.17],[width*1.12,.62,.31],hairColor);
+    const hairLength=[.55,.82,1.05,1.32][hairStyle];
+    for(const s of [-1,1]) {
+      b.path([[s*width*.72,1.78,.01],[s*width*1.04,1.47,.02],[s*(width*1.04+.05),1.78-hairLength,.03]],.09+hairStyle*.012,hairColor);
+    }
+    b.path([[-width*.75,1.78,.30],[-width*.22,1.98,.27],[width*.42,1.91,.25],[width*.85,1.69,.16]],.10,hairColor);
   }
-  b.path([[-.31,1.0,.34],[-.09,.91,.39],[.16,.94,.38],[.34,1.02,.31]],.034,ink);
+  b.ball([0,1.22,.02],[width,height,.41],skin);
+  b.ball([0,1.16,.42],[.09+rand()*.06,.17+rand()*.08,.12],skin);
+  for(const s of [-1,1]) {
+    b.ball([s*eyeX,eyeY,.37],[.09+rand()*.035,.04+rand()*.025,.06],green?0xe4c874:ink);
+    b.path([[s*.07,eyeY+.12,.41],[s*(eyeX+.05),eyeY+.18,.36],[s*(width*.8),eyeY+.14,.22]],.035+rand()*.025,ink);
+  }
+  const mouth=.22+rand()*.10;
+  b.path([[-mouth,mouthY+.04,.34],[-.09,mouthY-.03,.39],[.16,mouthY,.38],[mouth,mouthY+.05,.31]],.027+rand()*.01,ink);
   if(green){
     b.ball([0,.41,-.02],[.69,.43,.43],coral);
     b.rod([0,1.88,0],[-.22,2.43,0],.51,.06,coral);
@@ -93,7 +126,7 @@ function lips(b) {
 
 const sculptures = {
   heart, skull, web, eye, compass, lettering, lips, tribal,
-  face: b=>face(b), greenfigure: b=>face(b,true),
+  face: (b,seed)=>face(b,false,seed), greenfigure: b=>face(b,true),
   symbols(b) {glyph(b,0,-.72,.34,.7);glyph(b,1,0,.12,.86);glyph(b,2,.75,.34,.68);},
   geometry(b) {glyph(b,0,0,0,1.35);b.ring([0,1,0],.56,.035,silver);glyph(b,1,0,.58,.75);},
   arrows(b) {
@@ -159,9 +192,9 @@ const sculptures = {
   rope(b){b.path(Array.from({length:46},(_,i)=>{const a=i/45*tau*2;return [.66*Math.cos(a),.2+i/45*1.25,.66*Math.sin(a)]}),.07,wood);}
 };
 
-export function buildSculpture(code, builder) {
+export function buildSculpture(code, builder, identitySeed) {
   const make = sculptures[code];
   if (!make) return false;
-  make(builder);
+  make(builder,identitySeed);
   return true;
 }

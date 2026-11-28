@@ -1,11 +1,11 @@
 import * as THREE from 'three';
-import { buildSculpture } from './sculptures.js';
+import { buildSculpture } from './sculptures.js?v=identity-1';
 import { build2024 } from './motifs-2024.js?v=2024-1';
 import { animateAnimal, animalRest, animalRun, animalStep } from './animal-behaviors.js?v=animals-4';
 import {
   buildPrototypeRose, buildPrototypeSkulls, rainbowHeart, littleBear,
   elbowWebs, floweringSpray, sixPetals
-} from './prototype-details.js';
+} from './prototype-details.js?v=identity-1';
 
 // Each stationary body or animated limb is one draw, including all of its colours.
 // Recipes are baked once, then the geometry is shared between encounters.
@@ -483,7 +483,7 @@ const templates = new Map();
 export const supportedModels = Object.freeze((
   'tiger flower symbols gorilla dragon bird turtle face bear heart rose web snake butterfly skull flame blossom lips dog paw pug betta arrows lotus moon geometry tribal lion cub lettering cat sunflower helmet eye raptor cassette insect palm anglerfish sailboat seahorse fish cross owl music greenfigure swordfish moth scales compass hand plane rope forest mechanism jellyfish octopus frog vehicle wings scorpion reaper lioness elk anubis windmill'
 ).split(' '));
-function makeTemplate(code,variant) {
+function makeTemplate(code,variant,identitySeed) {
   const root=new THREE.Group(), body=new Batch(), parts=[];
   function part(motion,side,pos){
     const batch=new Batch();
@@ -513,7 +513,7 @@ function makeTemplate(code,variant) {
       break;
     case 'skull':
       if (variant === 'prototype') buildPrototypeSkulls(body);
-      else buildSculpture(code,body);
+      else buildSculpture(code,body,identitySeed);
       break;
     case 'flower':
       if(variant==='six-petals') sixPetals(body);
@@ -526,7 +526,7 @@ function makeTemplate(code,variant) {
     case 'palm': case 'sunflower': case 'lotus': plant(body,code,variant); break;
     default:
       if(!supportedModels.includes(code)) throw new Error('Motif 3D inconnu : '+code);
-      if (!build2024(code,body) && !buildSculpture(code,body)) throw new Error('Motif sans représentation : '+code);
+      if (!build2024(code,body) && !buildSculpture(code,body,identitySeed)) throw new Error('Motif sans représentation : '+code);
   }
   // Keep black-and-grey tattoo interpretations neutral rather than applying
   // the default bright colours used by the garden variants.
@@ -625,8 +625,13 @@ export function createMotif(work){
   const models=work.models;
   if(!Array.isArray(models)||!models.length) throw new Error('Cette œuvre demande au moins un motif.');
   models.forEach((code,i)=>{
-    const variant=variantFor(code,work,seed), key=code+':'+variant;
-    if(!templates.has(key)) templates.set(key,makeTemplate(code,variant));
+    const variant=variantFor(code,work,seed);
+    // Faces and skulls belong to a particular tattoo, even when the same
+    // type is used as a companion in another composition.
+    const individual=code==='face' || code==='skull';
+    const identitySeed=individual?hash(String(work.id || work.title)+':'+code+':'+i):0;
+    const key=code+':'+variant+(individual?':'+String(work.id || work.title)+':'+i:'');
+    if(!templates.has(key)) templates.set(key,makeTemplate(code,variant,identitySeed));
     const piece=templates.get(key).clone(), pivot=new THREE.Group();
     pivot.add(piece); group.add(pivot);
     if(i>0){

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
+import { createSkyEffects } from './sky-effects.js?v=aurora-1';
 import { worldWorks } from '../assets/world-catalog.js?v=2024-3';
-import { createMotif, animateMotif } from './motifs.js?v=forest-horizon-fluid-1';
+import { createMotif, animateMotif } from './motifs.js?v=individual-portraits-1';
 
 const $ = (s) => document.querySelector(s);
 const canvas = $('#world');
@@ -65,7 +66,7 @@ function applyTexture(material, slot, file, repeat, isColor = false) {
     material.needsUpdate = true;
   }, undefined, () => {});
 }
-let skyGroup;
+let skyGroup, updateSkyEffects;
 function addSky(){
   skyGroup=new THREE.Group();scene.add(skyGroup);
   const geo=new THREE.SphereGeometry(650,40,24);
@@ -74,6 +75,7 @@ function addSky(){
   const starPositions=[];for(let i=0;i<420;i++){const a=rand()*Math.PI*2,phi=.12+rand()*Math.PI*.48,rr=505;starPositions.push(Math.cos(a)*Math.cos(phi)*rr,Math.sin(phi)*rr,Math.sin(a)*Math.cos(phi)*rr)}
   const starsG=new THREE.BufferGeometry();starsG.setAttribute('position',new THREE.Float32BufferAttribute(starPositions,3));const stars=new THREE.Points(starsG,new THREE.PointsMaterial({color:0xdce7c6,size:1.9,sizeAttenuation:false,transparent:true,opacity:.62,depthWrite:false}));skyGroup.add(stars);
   const moon=new THREE.Mesh(new THREE.SphereGeometry(18,32,20),new THREE.MeshBasicMaterial({color:0xf2e7c3}));moon.position.set(-230,180,-400);skyGroup.add(moon);
+  updateSkyEffects=createSkyEffects(skyGroup);
 }
 function makeGround(){
   const seg=110,size=240;const geo=new THREE.PlaneGeometry(size,size,seg,seg);geo.rotateX(-Math.PI/2);
@@ -257,9 +259,44 @@ function trees(){
       floral.push({x,y:terrain(x,z)+.20+rand()*.24,z,sx:.8+rand(),sy:1+rand(),sz:1})}
     placeInstanced(flowerGeo,new THREE.MeshStandardMaterial({color:paletteFlowers[colorIndex],emissive:paletteFlowers[colorIndex],emissiveIntensity:.18}),floral.length,i=>floral[i]);
   }
-  const blades=new THREE.ConeGeometry(.10,1.0,3);blades.translate(0,.4,0);
-  const grass=[];for(let i=0;i<1000;i++){const b=biomes[i%3],a=rand()*6.28,r=8+Math.sqrt(rand())*52,x=b.x+Math.cos(a)*r,z=b.z+Math.sin(a)*r;grass.push({x,y:terrain(x,z),z,sx:.4+rand(),sy:.45+rand()*.8,sz:1,rot:rand()*6.28})}
-  placeInstanced(blades,new THREE.MeshStandardMaterial({color:0x739a6f,side:THREE.DoubleSide,roughness:1}),grass.length,i=>grass[i]);
+  makeShortGrass();
+}
+
+// Textured clumps of short grass cover the walkable floor. Each clump is two
+// crossed cards sharing one procedural, transparent blade texture and one draw.
+function makeShortGrass(){
+  const textureCanvas=document.createElement('canvas');
+  textureCanvas.width=textureCanvas.height=128;
+  const ctx=textureCanvas.getContext('2d'), random=rng(39261);
+  for(let i=0;i<30;i++){
+    const x=4+random()*120, height=35+random()*85, lean=(random()-.5)*31;
+    const width=1.4+random()*2.7;
+    const gradient=ctx.createLinearGradient(x,128,x+lean,128-height);
+    gradient.addColorStop(0,'#3b5230');
+    gradient.addColorStop(.60,i%3===0?'#829165':'#657c4e');
+    gradient.addColorStop(1,i%4===0?'#b0b997':'#91a776');
+    ctx.fillStyle=gradient;ctx.beginPath();
+    ctx.moveTo(x-width,128);ctx.quadraticCurveTo(x+lean*.30,128-height*.57,x+lean,128-height);
+    ctx.quadraticCurveTo(x+lean*.58,128-height*.45,x+width,128);ctx.closePath();ctx.fill();
+  }
+  const texture=new THREE.CanvasTexture(textureCanvas);texture.colorSpace=THREE.SRGBColorSpace;
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute([
+    -.5,0,0,.5,0,0,-.5,1,0,.5,1,0,
+    0,0,-.5,0,0,.5,0,1,-.5,0,1,.5
+  ],3));
+  geo.setAttribute('uv',new THREE.Float32BufferAttribute([0,0,1,0,0,1,1,1,0,0,1,0,0,1,1,1],2));
+  geo.setIndex([0,1,2,2,1,3,4,5,6,6,5,7]);geo.computeVertexNormals();
+  const material=new THREE.MeshStandardMaterial({map:texture,transparent:false,alphaTest:.28,side:THREE.DoubleSide,roughness:1,color:0xc4d0ad});
+  const grass=[], step=isTouch?1.08:.90, detail=rng(778201);
+  for(let z=-91;z<=91;z+=step) for(let x=-91;x<=91;x+=step){
+    const gx=x+(detail()-.5)*step*.8,gz=z+(detail()-.5)*step*.8;
+    // Keep the existing pond water clear of grass.
+    if (((gx-56)/8)**2+((gz-30)/4.4)**2 < 1) continue;
+    const height=.18+detail()*.22, width=.65+detail()*.37;
+    grass.push({x:gx,y:terrain(gx,gz)-.02,z:gz,sx:width,sy:height,sz:width,rot:detail()*Math.PI});
+  }
+  placeInstanced(geo,material,grass.length,i=>grass[i]);
 }
 // A deep belt of full-height trees continues beyond the walkable map. Low and
 // middle foliage matters here: tall bare trunks alone leave a visible empty horizon.
@@ -330,21 +367,6 @@ function landscapeDetails(){
     placeInstanced(rockGeo,new THREE.MeshStandardMaterial({color:rockColors[k],roughness:1,flatShading:true}),rocks.length,i=>rocks[i]);
     placeInstanced(shrubGeo,new THREE.MeshStandardMaterial({color:shrubColors[k],roughness:1,flatShading:true}),shrubs.length,i=>shrubs[i]);
   }
-  // Low, gently curving paths link the central clearings. Their vertices follow terrain.
-  for(const target of [biomes[1],biomes[2]]){
-    const coords=[],indices=[],segments=180;
-    for(let i=0;i<=segments;i++){
-      const t=i/segments,x=target.x*t,z=target.z*t+Math.sin(t*Math.PI)*12;
-      const dx=target.x,dz=target.z+12*Math.PI*Math.cos(t*Math.PI),len=Math.hypot(dx,dz);
-      for(const side of [-1,1]){
-        const px=x-side*dz/len*2.2,pz=z+side*dx/len*2.2;
-        coords.push(px,terrain(px,pz)+.15,pz);
-      }
-      if(i<segments){const n=i*2;indices.push(n,n+2,n+1,n+1,n+2,n+3)}
-    }
-    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(coords,3));geo.setIndex(indices);geo.computeVertexNormals();
-    scene.add(new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x9a8b6d,roughness:1,side:THREE.DoubleSide})));
-  }
 }
 const atmosphere={
   forest:{fog:0x18312f,sky:0x091b23,sun:0xffddab,hemi:0xc9e3d5,exposure:1.35},
@@ -361,11 +383,6 @@ function updateAtmosphere(delta){
   renderer.toneMappingExposure=THREE.MathUtils.lerp(renderer.toneMappingExposure,a.exposure,blend);
 }
 function landmarks(){
-  for(const b of biomes){
-    // Curving illuminated trail is a geometry, not a static image.
-    const pts=[];for(let i=0;i<=160;i++){const t=i/160*Math.PI*5,r=7+i/160*35,x=b.x+Math.cos(t)*r,z=b.z+Math.sin(t)*r;pts.push(v3(x,terrain(x,z)+.08,z))}
-    const curve=new THREE.CatmullRomCurve3(pts);const track=new THREE.Mesh(new THREE.TubeGeometry(curve,520,.055,3,false),new THREE.MeshBasicMaterial({color:b.color,transparent:true,opacity:.64}));scene.add(track);
-  }
   // Water garden pond, with offset glints.
   const pool=new THREE.Mesh(new THREE.CircleGeometry(8,48),new THREE.MeshStandardMaterial({color:0x447b82,metalness:.65,roughness:.23,transparent:true,opacity:.85,side:THREE.DoubleSide}));pool.rotation.x=-Math.PI/2;pool.scale.y=.55;pool.position.set(56,terrain(56,30)+.13,30);scene.add(pool);
   // Moonglow under darker sector.
@@ -631,6 +648,7 @@ function animate(){requestAnimationFrame(animate);const delta=Math.min(clock.get
   const velocity=v3(r,0,-f);if(velocity.lengthSq()){velocity.normalize().applyAxisAngle(UP,yaw).multiplyScalar((keys.ShiftLeft||keys.ShiftRight?12.4:6.2)*delta);camX=THREE.MathUtils.clamp(camX+velocity.x,-90,90);camZ=THREE.MathUtils.clamp(camZ+velocity.z,-90,90);bob+=delta*11}else{bob+=delta*3}
   camera.position.set(camX,terrain(camX,camZ)+1.85+(velocity.lengthSq()?.034*Math.sin(bob):0),camZ);camera.rotation.set(pitch,yaw,0,'YXZ');
   skyGroup.position.copy(camera.position);updateAtmosphere(delta);
+  updateSkyEffects(prefersReducedMotion.matches ? 0 : t);
   animateDecor(t);renderer.render(scene,camera);
   frameCounter++;if(t-fpsLast>1){$('#fps').textContent=String(Math.round(frameCounter/(t-fpsLast)));frameCounter=0;fpsLast=t}
   if(t-worldLast>.42){refreshMotifs();updateLocation();worldLast=t}
