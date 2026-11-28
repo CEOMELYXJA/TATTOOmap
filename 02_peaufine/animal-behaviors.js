@@ -68,7 +68,9 @@ export function animateAnimal(group,time,visitorPosition) {
       const cycle=((t+pairPhase)%30+30)%30;
       const play=ease((cycle-7)/3)*(1-ease((cycle-20)/3))*(1-rest);
       const dx=mate.position.x-group.position.x, dz=mate.position.z-group.position.z;
-      const length=Math.hypot(dx,dz)||1, reach=Math.min(length*.43,4.4)*play;
+      // The animals placed around the fire play gently without entering the flames.
+      const maxReach=group.userData.campfireCompanion ? 1.15 : 4.4;
+      const length=Math.hypot(dx,dz)||1, reach=Math.min(length*.43,maxReach)*play;
       const angle=group.rotation.y, wx=dx/length*reach, wz=dz/length*reach;
       x+=Math.cos(angle)*wx-Math.sin(angle)*wz;
       z+=Math.sin(angle)*wx+Math.cos(angle)*wz;

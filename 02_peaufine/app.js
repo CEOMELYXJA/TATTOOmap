@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { createSkyEffects } from './sky-effects.js?v=aurora-1';
+import { createCampfire } from './campfire.js?v=campfire-1';
 import { worldWorks } from '../assets/world-catalog.js?v=2024-3';
-import { createMotif, animateMotif } from './motifs.js?v=individual-portraits-1';
+import { createMotif, animateMotif } from './motifs.js?v=tattoos-fire-1';
 
 const $ = (s) => document.querySelector(s);
 const canvas = $('#world');
@@ -33,7 +34,7 @@ const biomes = [
 // The year comes from the Wix upload record, not the date the tattoo was made.
 // The complete catalogue remains available for future additions.
 const works = worldWorks;
-let positions=[];
+let positions=[], forestExclusions=[];
 let yaw=0, pitch=0, locked=false, active=false;
 let keys={};
 let camX=0,camZ=8, bob=0, mobileF=0,mobileR=0;
@@ -187,7 +188,7 @@ function trees(){
     if (biomeAt(x,z)!==b || Math.abs(x)>90 || Math.abs(z)>85) continue;
     // Reserve each central gallery and arrival point for a clear view.
     if (biomes.some(center => Math.hypot(x-center.x,z-center.z) < 14)) continue;
-    if (positions.some(p => Math.hypot(x-p.x,z-p.z) < 10 || Math.hypot(x-p.entryX,z-p.entryZ) < 8)) continue;
+    if (forestExclusions.some(p => Math.hypot(x-p.x,z-p.z) < 10 || Math.hypot(x-p.entryX,z-p.entryZ) < 8)) continue;
     if(Math.abs(x)<7&&z<40&&z>-70)continue;
     if(Math.abs(x-(b.x+20))<5&&Math.abs(z-(b.z+20))<5)continue;
     treePositions.push({x,y:terrain(x,z),z,biome:k,sx:.9+rand()*.55,sy:24+rand()*14,sz:.9+rand()*.55,rot:rand()*6.28});
@@ -203,7 +204,7 @@ function trees(){
       const x=parent.x+Math.cos(angle)*distance, z=parent.z+Math.sin(angle)*distance;
       if (biomeAt(x,z)!==b || Math.abs(x)>90 || Math.abs(z)>85) continue;
       if (biomes.some(center => Math.hypot(x-center.x,z-center.z) < 14)) continue;
-      if (positions.some(p => Math.hypot(x-p.x,z-p.z) < 10 || Math.hypot(x-p.entryX,z-p.entryZ) < 8)) continue;
+      if (forestExclusions.some(p => Math.hypot(x-p.x,z-p.z) < 10 || Math.hypot(x-p.entryX,z-p.entryZ) < 8)) continue;
       if (Math.abs(x)<7 && z<40 && z>-70) continue;
       if (Math.abs(x-(b.x+20))<5 && Math.abs(z-(b.z+20))<5) continue;
       if (treePositions.some(existing => Math.hypot(x-existing.x,z-existing.z) < 1.5)) continue;
@@ -239,7 +240,7 @@ function trees(){
     for(let i=0;i<4;i++) {
       const angle=p.rot+i*2.399963, distance=1.0+understoryRandom()*2.4;
       const x=p.x+Math.cos(angle)*distance, z=p.z+Math.sin(angle)*distance;
-      if (positions.some(work => Math.hypot(x-work.x,z-work.z)<7.5 || Math.hypot(x-work.entryX,z-work.entryZ)<6)) continue;
+      if (forestExclusions.some(work => Math.hypot(x-work.x,z-work.z)<7.5 || Math.hypot(x-work.entryX,z-work.entryZ)<6)) continue;
       if (Math.abs(x)<7 && z<40 && z>-70) continue;
       const size=1.8+understoryRandom()*.8;
       leafClusters.push({x,y:terrain(x,z)+1.7+i*.95,z,sx:size,sy:size*.9,sz:size,rot:angle});
@@ -307,6 +308,7 @@ function makeShortGrass(){
   const grass=[], step=isTouch?.88:.72, detail=rng(778201);
   for(let z=-91;z<=91;z+=step) for(let x=-91;x<=91;x+=step){
     const gx=x+(detail()-.5)*step*.25,gz=z+(detail()-.5)*step*.25;
+    if (gx*gx+gz*gz < 2.4**2) continue;
     // Keep the existing pond water clear of grass.
     if (((gx-56)/8)**2+((gz-30)/4.4)**2 < 1) continue;
     const height=.20+detail()*.15, width=step*(1.20+detail()*.15);
@@ -444,6 +446,16 @@ function createPositions() {
     }
     throw new Error('Impossible de placer toutes les œuvres dans la carte.');
   });
+  forestExclusions=positions.map(point=>({...point}));
+  // Position original encounters around the fire while retaining their IDs and photos.
+  const companions=['wix-upload-2026-035','wix-upload-2026-037','wix-upload-2026-068','wix-upload-2026-071'];
+  companions.forEach((id,i)=>{
+    const index=works.findIndex(work=>work.id===id);
+    if(index<0) return;
+    const point=positions[index],angle=.35+i*Math.PI/2,x=Math.cos(angle)*8,z=Math.sin(angle)*8;
+    Object.assign(point,{x,z,y:terrain(x,z),biome:'forest',angle,
+      entryX:x+Math.cos(angle)*6.5,entryZ:z+Math.sin(angle)*6.5,campfire:true});
+  });
 }
 
 function refreshMotifs() {
@@ -457,6 +469,7 @@ function refreshMotifs() {
     } else if (!current && distance < renderDistance) {
       const group = createMotif(works[point.index]);
       group.userData.artIndex = point.index;
+      group.userData.campfireCompanion = Boolean(point.campfire);
       group.position.set(point.x, point.y, point.z);
       // Turn each principal motif toward the center of its clearing.
       const primary = works[point.index].models[0];
@@ -505,8 +518,9 @@ function visitMotif(point) {
   if (!point) return;
   const biome = biomes.find(b => b.id === point.biome);
   const angle = Math.atan2(point.z - biome.z, point.x - biome.x);
-  camX = point.x - Math.cos(angle) * 6.5;
-  camZ = point.z - Math.sin(angle) * 6.5;
+  const approach = point.campfire ? 1 : -1;
+  camX = point.x + Math.cos(angle) * 6.5 * approach;
+  camZ = point.z + Math.sin(angle) * 6.5 * approach;
   refreshMotifs();
   const group = activeMotifs.get(point.index);
   const height = group?.userData.focusHeight || 1.15;
@@ -666,6 +680,7 @@ function animate(){requestAnimationFrame(animate);const delta=Math.min(clock.get
   camera.position.set(camX,terrain(camX,camZ)+1.85+(velocity.lengthSq()?.034*Math.sin(bob):0),camZ);camera.rotation.set(pitch,yaw,0,'YXZ');
   skyGroup.position.copy(camera.position);updateAtmosphere(delta);
   updateSkyEffects(prefersReducedMotion.matches ? 0 : t);
+  updateCampfire(prefersReducedMotion.matches ? 0 : t);
   animateDecor(t);renderer.render(scene,camera);
   frameCounter++;if(t-fpsLast>1){$('#fps').textContent=String(Math.round(frameCounter/(t-fpsLast)));frameCounter=0;fpsLast=t}
   if(t-worldLast>.42){refreshMotifs();updateLocation();worldLast=t}
@@ -678,6 +693,7 @@ makeGround();
 trees();
 landscapeDetails();
 landmarks();
+const updateCampfire=createCampfire(scene,terrain);
 makeFireflies();
 setupEvents();
 $('#totalCount').textContent = works.length;
