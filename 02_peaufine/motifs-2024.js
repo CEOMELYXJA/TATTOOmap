@@ -1,3 +1,4 @@
+import { addOrganicBody } from './animal-detail.js?v=organic-3';
 // Volumetric interpretations of subjects identified in the 2024 archive.
 // Built with the shared geometry batcher so identical motifs can be reused.
 const ink = 0x29292c;
@@ -38,8 +39,7 @@ function mechanism(b) {
 
 function jellyfish(b) {
   // A rounded bell and separate, curling hanging tentacles remain visible from all sides.
-  b.ball([0,1.75,0],[.73,.36,.65],0xb69fa5);
-  b.ball([0,1.61,0],[.66,.14,.57],0xd4c1bb);
+  addOrganicBody('jellyfish','',b);
   for (let i=0;i<12;i++) {
     const a=i*Math.PI*2/12, r=.28+(i%3)*.12;
     const x=Math.cos(a)*r,z=Math.sin(a)*r;
@@ -53,8 +53,7 @@ function jellyfish(b) {
 
 function octopus(b) {
   // Long rounded head, eye ridge, eight independent curling arms and suckers.
-  b.ball([0,1.72,0],[.48,.62,.39],stone);
-  b.ball([0,1.22,.03],[.50,.30,.43],stone);
+  addOrganicBody('octopus','',b);
   for(const side of [-1,1]) {
     b.ball([side*.26,1.28,.37],[.15,.12,.12],silver);
     b.ball([side*.27,1.29,.47],[.062,.066,.045],ink);
@@ -69,8 +68,7 @@ function octopus(b) {
 
 function frog(b) {
   // Broad head, raised eyes, folded rear legs and splayed toes.
-  b.ball([0,.68,0],[.58,.31,.73],0x728854);
-  b.ball([0,.79,.51],[.62,.25,.39],0x839961);
+  addOrganicBody('frog','',b);
   for(const side of [-1,1]) {
     b.ball([side*.4,.98,.69],[.18,.16,.17],0x91a76d);
     b.ball([side*.4,1.01,.81],[.075,.075,.06],ink);
@@ -102,8 +100,7 @@ function wings(b) {
 function scorpion(b) {
   const shell=0x393a3b, highlight=0x8c8880;
   // Armoured body and eight jointed legs with two front pincers.
-  for(let i=0;i<6;i++) b.ball([0,.48,.42-i*.17],[.33-i*.025,.17,.17],i%2?shell:highlight);
-  b.ball([0,.52,.57],[.26,.16,.25],shell);
+  addOrganicBody('scorpion','',b);
   for(const side of [-1,1]) {
     for(let i=0;i<4;i++) {
       const z=.31-i*.23;
@@ -138,13 +135,12 @@ function reaper(b) {
 function lioness(b) {
   const coat=0xaaa49c, shadow=0x625e59;
   // Mane-free lioness portrait with rounded ears, broad muzzle and almond eyes.
-  b.ball([0,1.26,0],[.66,.73,.44],coat);
+  addOrganicBody('lioness','',b);
   for(const side of [-1,1]) {
     b.ball([side*.50,1.79,-.01],[.20,.24,.15],shadow);
     b.ball([side*.50,1.8,.11],[.11,.14,.055],coat);
     b.ball([side*.27,1.43,.39],[.16,.085,.06],shadow,[0,0,-side*.2]);
     b.ball([side*.27,1.44,.44],[.066,.045,.025],ink);
-    b.ball([side*.19,.98,.40],[.25,.20,.17],silver);
     for(let i=0;i<3;i++) b.path([[side*.28,.99-i*.055,.53],[side*.56,.97-i*.07,.58],[side*.78,.98-i*.08,.52]],.008,ink);
     b.path([[side*.12,1.67,.40],[side*.32,1.61,.38],[side*.46,1.55,.27]],.026,shadow);
   }
@@ -155,10 +151,7 @@ function lioness(b) {
 
 function elk(b) {
   const coat=0x726d64, dark=0x464641;
-  b.ball([-.13,1.15,0],[.83,.48,.36],coat);
-  b.ball([.52,1.50,0],[.35,.57,.31],dark,[0,0,-.24]);
-  b.ball([.74,1.98,0],[.34,.30,.27],coat);
-  b.ball([1.02,1.84,0],[.30,.17,.22],dark);
+  addOrganicBody('elk','',b);
   for(const side of [-1,1]) {
     for(const x of [-.62,.49]) {
       b.rod([x,1.05,side*.22],[x-.06,.50,side*.22],.095,.07,coat);
@@ -179,14 +172,13 @@ function elk(b) {
 function anubis(b) {
   const dark=0x34383a, gold=0xb79a5b;
   // Tall upright jackal ears, elongated muzzle and striped Egyptian collar.
-  b.ball([0,1.56,0],[.42,.53,.33],dark);
+  addOrganicBody('anubis','',b);
   for(const side of [-1,1]) {
     b.poly([[0,0],[side*.22,.04],[side*.10,.77]],.18,[side*.23,1.83,-.1],dark);
     b.poly([[0,0],[side*.09,.03],[side*.055,.48]],.04,[side*.25,1.94,.1],gold);
     b.ball([side*.22,1.67,.29],[.11,.055,.04],gold);
     b.ball([side*.23,1.68,.33],[.045,.035,.022],ink);
   }
-  b.ball([0,1.34,.42],[.19,.15,.34],dark);
   b.ball([0,1.34,.72],[.14,.10,.08],ink);
   b.poly([[-.55,0],[-.74,-.55],[0,-.77],[.74,-.55],[.55,0]],.23,[0,1.09,-.12],gold);
   for(let i=0;i<3;i++)b.path([[-.52-i*.04,.99-i*.14,.14],[0,.79-i*.14,.18],[.52+i*.04,.99-i*.14,.14]],.035,dark);

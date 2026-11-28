@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { createSkyEffects } from './sky-effects.js?v=aurora-1';
 import { createCampfire } from './campfire.js?v=campfire-1';
 import { worldWorks } from '../assets/world-catalog.js?v=2024-3';
-import { createMotif, animateMotif } from './motifs.js?v=tattoos-fire-1';
+import { createMotif, animateMotif } from './motifs.js?v=organic-detail-3';
 
 const $ = (s) => document.querySelector(s);
 const canvas = $('#world');
@@ -39,6 +39,7 @@ let yaw=0, pitch=0, locked=false, active=false;
 let keys={};
 let camX=0,camZ=8, bob=0, mobileF=0,mobileR=0;
 let interactionArt=null;
+let recentVisit=null;
 let toastTimer=0;
 const activeMotifs = new Map();
 const ray = new THREE.Raycaster();
@@ -555,7 +556,13 @@ function artworkAt(ndc) {
   return found;
 }
 
-function getNearest() { return artworkAt(aim.set(0, 0)); }
+function getNearest() {
+  const hit=artworkAt(aim.set(0,0));
+  if(hit) return hit;
+  if(recentVisit && clock.elapsedTime<recentVisit.until && Math.hypot(camX-recentVisit.point.x,camZ-recentVisit.point.z)<14)
+    return works[recentVisit.point.index];
+  return null;
+}
 
 function inspect(art){ if(!art)return;document.exitPointerLock?.();$('#detailTitle').textContent=art.title;$('#detailYear').textContent=art.year||'—';$('#detailDescription').textContent=art.description||'Une œuvre de Melisa Fortin.';$('#detailCategory').textContent=art.category||'Tatouage';$('#detailPhoto').src=art.image;$('#detailPhoto').alt=art.title;const link=$('#detailSource');if(art.source?.startsWith('https://')){link.hidden=false;link.href=art.source}else{link.hidden=true;link.removeAttribute('href')}$('#details').hidden=false;}
 function hideDetails(){$('#details').hidden=true}
@@ -570,9 +577,17 @@ function visitMotif(point) {
   camZ = point.z + Math.sin(angle) * 6.5 * approach;
   refreshMotifs();
   const group = activeMotifs.get(point.index);
+  recentVisit={point,until:clock.elapsedTime+8};
+  if(group) group.userData.focusUntil=clock.elapsedTime+8;
   const height = group?.userData.focusHeight || 1.15;
-  yaw = Math.atan2(camX - point.x, camZ - point.z);
-  pitch = Math.atan2(point.y + height - terrain(camX,camZ) - 1.85, 6.5);
+  // Aim at the current animated subject rather than its unmoving map anchor.
+  const target = group?.children[0]?.getWorldPosition(new THREE.Vector3()) || new THREE.Vector3(point.x,point.y,point.z);
+  // Keep a comfortable viewing distance even if the animal wandered before selection.
+  camX=target.x+Math.cos(angle)*6.5*approach;
+  camZ=target.z+Math.sin(angle)*6.5*approach;
+  const distance = Math.max(.1,Math.hypot(camX-target.x,camZ-target.z));
+  yaw = Math.atan2(camX - target.x, camZ - target.z);
+  pitch = Math.atan2(point.y + height - terrain(camX,camZ) - 1.85, distance);
   camera.position.set(camX, terrain(camX,camZ) + 1.85, camZ);
   camera.rotation.set(pitch, yaw, 0, 'YXZ');
   camera.updateMatrixWorld();
