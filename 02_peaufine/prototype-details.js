@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { addOrganicBody } from './animal-detail.js?v=organic-3';
+import { addOrganicPortrait } from './portrait-detail.js?v=organic-3';
 
 // Keep the characteristic silhouettes of the 2026 compositions when seen
 // from the trail. All curves are actual geometry and can be viewed from behind.
@@ -19,9 +21,8 @@ export function rainbowHeart(b) {
 
 export function littleBear(b) {
   const peach = '#e2a075', cream = '#ffe1a8', pink = '#ce767e';
-  b.ball([0,.66,0],[.40,.48,.28],peach);
+  addOrganicBody('bear','',b);
   b.ball([0,.67,.235],[.25,.29,.075],cream);
-  b.ball([0,1.29,.035],[.46,.40,.315],peach);
   for (const side of [-1,1]) {
     b.ball([side*.32,1.62,.03],[.19,.19,.14],peach);
     b.ball([side*.33,1.63,.15],[.105,.108,.035],pink);
@@ -208,9 +209,13 @@ function facialBone(b, origin, size, light, character=0) {
   const shadow = '#332d32';
   const dark = '#1d1d24';
   // Cranial dome plus a shaped facial mask, projecting in depth.
-  b.ball(p(0,1.58,-.03),[.55*size*width,.71*size,.46*size],skin,[0,0,-.04]);
-  b.ball(p(0,1.04,.10),[.45*size*width,.45*size,.36*size],skin);
-  b.ball(p(0,.75,.10),[.37*size*width,.22*size,.31*size],skin);
+  const bones=[
+    [...p(0,1.58,-.03),.55*size*width,.71*size,.46*size],
+    [...p(0,1.04,.10),.45*size*width,.45*size,.36*size],
+    [...p(0,.75,.10),.37*size*width,.22*size,.31*size]
+  ];
+  const sockets=[-1,1].map(side=>[...p(side*.25,1.32,.40),eyeWidth*size,(.22-character*.015)*size,.14*size]);
+  addOrganicPortrait(b,bones,sockets,skin);
   for (const side of [-1, 1]) {
     b.ball(p(side*.25,1.32,.40),[eyeWidth*size,(.22-character*.015)*size,.075*size],dark,[0,0,-side*(.12+character*.06)]);
     b.path([p(side*.07,1.54,.42),p(side*.25,1.58,.43),p(side*.42,1.48,.34)],

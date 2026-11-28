@@ -1,24 +1,101 @@
 import * as THREE from 'three';
-import { buildSculpture } from './sculptures.js?v=identity-2';
-import { build2024 } from './motifs-2024.js?v=2024-1';
-import { animateAnimal, animalRest, animalRun, animalStep } from './animal-behaviors.js?v=animals-5';
+import { buildSculpturalFlame } from './flame-detail.js?v=organic-1';
+import { buildDetailedPlant, addSculpturalDetails } from './botanical-detail.js?v=detail-3';
+import { addOrganicBody, enhanceAnimal } from './animal-detail.js?v=organic-3';
+import { buildSculpture } from './sculptures.js?v=organic-2';
+import { build2024 } from './motifs-2024.js?v=organic-3';
+import { animateAnimal, animalRest, animalRun, animalStep } from './animal-behaviors.js?v=animals-6';
 import {
   buildPrototypeRose, buildPrototypeSkulls, rainbowHeart, littleBear,
   elbowWebs, floweringSpray, sixPetals
-} from './prototype-details.js?v=identity-1';
+} from './prototype-details.js?v=organic-3';
 
 // Each stationary body or animated limb is one draw, including all of its colours.
 // Recipes are baked once, then the geometry is shared between encounters.
-const clay = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .8, flatShading: true, side: THREE.DoubleSide });
+// Shared physically based finishes preserve batching, but let organic surfaces,
+// petals and crafted objects respond differently to the existing light.
+// Shared periodic microrelief and roughness maps: no large texture per object.
+function surfaceMaps(kind) {
+  const size=64, heights=new Float32Array(size*size), normal=new Uint8Array(size*size*4), rough=new Uint8Array(size*size*4);
+  for(let y=0;y<size;y++) for(let x=0;x<size;x++) {
+    const u=x*Math.PI*2/size,v=y*Math.PI*2/size;
+    const primary=kind==='animal' ? Math.sin(u*5+v*13)*.12 : kind==='petal' ? Math.sin(u*10+Math.sin(v*2))*.08 : Math.sin(u*7)*Math.sin(v*9)*.08;
+    heights[y*size+x]=.5+primary+Math.sin(u*19+v*17)*.035+Math.cos(u*13-v*11)*.025;
+  }
+  const sample=(x,y)=>heights[((y+size)%size)*size+(x+size)%size];
+  for(let y=0;y<size;y++) for(let x=0;x<size;x++) {
+    const i=(y*size+x)*4, dx=(sample(x+1,y)-sample(x-1,y))*.75,dy=(sample(x,y+1)-sample(x,y-1))*.75;
+    const n=new THREE.Vector3(-dx,-dy,1).normalize();
+    normal[i]=Math.round((n.x*.5+.5)*255);normal[i+1]=Math.round((n.y*.5+.5)*255);normal[i+2]=Math.round((n.z*.5+.5)*255);normal[i+3]=255;
+    const value=Math.max(0,Math.min(255,Math.round(185+sample(x,y)*55)));
+    rough[i]=rough[i+1]=rough[i+2]=value;rough[i+3]=255;
+  }
+  const create=data=>{const texture=new THREE.DataTexture(data,size,size,THREE.RGBAFormat);texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.magFilter=THREE.LinearFilter;texture.minFilter=THREE.LinearMipmapLinearFilter;texture.generateMipmaps=true;texture.needsUpdate=true;return texture;};
+  return {normal:create(normal),roughness:create(rough)};
+}
+const detailMaps={animal:surfaceMaps('animal'),petal:surfaceMaps('petal'),crafted:surfaceMaps('crafted')};
+function surfaceMaterial(roughness, sheen, clearcoat, grain, kind) {
+  const mat = new THREE.MeshPhysicalMaterial({
+    vertexColors: true, roughness, metalness: 0, flatShading: false,
+    sheen, sheenRoughness: .75, sheenColor: 0xd3c7b4,
+    clearcoat, clearcoatRoughness: .55, side: THREE.DoubleSide
+  });
+  mat.normalMap=detailMaps[kind].normal;
+  mat.roughnessMap=detailMaps[kind].roughness;
+  mat.normalScale.set(.22,.22);
+  // A very fine, local-space colour variation avoids large perfectly uniform
+  // plastic-looking areas without loading textures per tattoo or adding draws.
+  mat.onBeforeCompile = shader => {
+    shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vSurfacePosition;');
+    shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvSurfacePosition = position;');
+    shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vSurfacePosition;');
+    shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      float surfaceGrain = sin(vSurfacePosition.x * 91.0 + sin(vSurfacePosition.y * 63.0)) * sin(vSurfacePosition.z * 83.0 + vSurfacePosition.y * 37.0);
+      diffuseColor.rgb *= 1.0 + surfaceGrain * ${grain.toFixed(3)};`);
+  };
+  mat.customProgramCacheKey = () => 'tattoo-surface-' + grain;
+  return mat;
+}
+const animalSurface = surfaceMaterial(.82, .22, .02, .025, 'animal');
+const petalSurface = surfaceMaterial(.62, .30, .04, .018, 'petal');
+const craftedSurface = surfaceMaterial(.68, .08, .08, .015, 'crafted');
+const animalCodes = new Set('tiger lion cub cat dog pug gorilla bear bird owl raptor dragon butterfly moth insect seahorse fish betta anglerfish swordfish snake turtle jellyfish octopus frog scorpion lioness elk anubis'.split(' '));
+const botanicalCodes = new Set('rose flower blossom palm sunflower lotus forest windmill'.split(' '));
+const materialFor = code => animalCodes.has(code) ? animalSurface : botanicalCodes.has(code) ? petalSurface : craftedSurface;
 const unitSphere = new THREE.SphereGeometry(1, 20, 14);
-const unitBox = new THREE.BoxGeometry();
+// A gently rounded shared box is useful for teeth, stones and manufactured
+// details. It keeps the existing size and rotations without hard block corners.
+const unitBox = new THREE.BoxGeometry(1, 1, 1, 2, 2, 2);
+{
+  const p=unitBox.attributes.position, n=unitBox.attributes.normal;
+  const v=new THREE.Vector3(), inner=new THREE.Vector3(), direction=new THREE.Vector3();
+  for(let i=0;i<p.count;i++) {
+    v.fromBufferAttribute(p,i);
+    inner.set(THREE.MathUtils.clamp(v.x,-.42,.42),THREE.MathUtils.clamp(v.y,-.42,.42),THREE.MathUtils.clamp(v.z,-.42,.42));
+    direction.copy(v).sub(inner).normalize();
+    v.copy(inner).addScaledVector(direction,.08);
+    p.setXYZ(i,v.x,v.y,v.z);n.setXYZ(i,direction.x,direction.y,direction.z);
+  }
+  p.needsUpdate=true;n.needsUpdate=true;
+}
 const identity = [0, 0, 0];
 const vector = a => new THREE.Vector3(...a);
 const ink = '#24232b', ivory = '#fff0ce', amber = '#e3af55';
 const leaves = '#406e4a', stem = '#637947';
+// Shapes shared by catalogue variants are triangulated only once. The batch
+// copies their buffers, so no renderer-owned geometry is shared or mutated.
+const shapeCache = new Map();
+function sharedShape(key, create) {
+  let geometry = shapeCache.get(key);
+  if (geometry) return geometry;
+  geometry = create();
+  if (shapeCache.size >= 512) shapeCache.delete(shapeCache.keys().next().value);
+  shapeCache.set(key,geometry);
+  return geometry;
+}
 
 class Batch {
-  constructor() { this.positions = []; this.normals = []; this.colors = []; }
+  constructor(material = craftedSurface) { this.positions = []; this.normals = []; this.colors = []; this.material = material; }
   add(geo, pos, scale, color, rotation = identity, orientation) {
     const q = orientation || new THREE.Quaternion().setFromEuler(new THREE.Euler(...rotation));
     const matrix = new THREE.Matrix4().compose(vector(pos), q, vector(scale));
@@ -40,20 +117,25 @@ class Batch {
     const dir = vector(b).sub(vector(a)), length = dir.length();
     if (length < .00001) return;
     const orient = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),dir.normalize());
-    const g = new THREE.CylinderGeometry(tip,base,length,8);
+    const key = `r:${tip.toFixed(4)}:${base.toFixed(4)}:${length.toFixed(4)}`;
+    const g = sharedShape(key,()=>new THREE.CylinderGeometry(tip,base,length,10));
     this.add(g,vector(a).lerp(vector(b),.5).toArray(),[1,1,1],color,identity,orient);
   }
   path(points, radius, color) {
     const line = new THREE.CatmullRomCurve3(points.map(vector));
-    this.add(new THREE.TubeGeometry(line,Math.max(6,points.length*3),radius,5),identity,[1,1,1],color);
+    this.add(new THREE.TubeGeometry(line,Math.max(6,points.length*3),radius,6),identity,[1,1,1],color);
   }
   poly(points, depth, pos, color, rotation) {
-    const shape = new THREE.Shape(points.map(([x,y])=>new THREE.Vector2(x,y)));
-    const geo = new THREE.ExtrudeGeometry(shape,{depth,bevelEnabled:false,curveSegments:4});
+    const bevel = Math.min(.025, Math.max(.002, depth*.12));
+    const key = `p:${depth}:`+points.map(([x,y])=>`${x},${y}`).join(';');
+    const geo = sharedShape(key,()=>{
+      const shape = new THREE.Shape(points.map(([x,y])=>new THREE.Vector2(x,y)));
+      return new THREE.ExtrudeGeometry(shape,{depth,bevelEnabled:true,bevelSize:bevel,bevelThickness:bevel,bevelSegments:1,curveSegments:5});
+    });
     this.add(geo,pos,[1,1,1],color,rotation);
   }
   ring(pos,radius,tube,color,rotation) {
-    this.add(new THREE.TorusGeometry(radius,tube,6,32),pos,[1,1,1],color,rotation);
+    this.add(new THREE.TorusGeometry(radius,tube,8,36),pos,[1,1,1],color,rotation);
   }
   mesh() {
     if (!this.positions.length) return null;
@@ -61,8 +143,15 @@ class Batch {
     g.setAttribute('position',new THREE.Float32BufferAttribute(this.positions,3));
     g.setAttribute('normal',new THREE.Float32BufferAttribute(this.normals,3));
     g.setAttribute('color',new THREE.Float32BufferAttribute(this.colors,3));
+    // Stable object-space coordinates keep procedural microdetails on the 3D surface.
+    const uv=new Float32Array(this.positions.length/3*2);
+    for(let i=0,j=0;i<this.positions.length;i+=3,j+=2){
+      uv[j]=this.positions[i]*.38+this.positions[i+2]*.21;
+      uv[j+1]=this.positions[i+1]*.38+this.positions[i+2]*.17;
+    }
+    g.setAttribute('uv',new THREE.BufferAttribute(uv,2));
     g.computeBoundingSphere();
-    return new THREE.Mesh(g,clay);
+    return new THREE.Mesh(g,this.material);
   }
 }
 
@@ -89,8 +178,7 @@ function animatedLeg(b,back,color,thickness=.16) {
 function tattooTiger(b,part) {
   const fur = '#817f7c', light = '#c6c2bb', shade = '#444443';
   // Torso and four weight-bearing legs, viewed most clearly from the side.
-  b.ball([-.27,1.42,0],[1.05,.58,.45],fur);
-  b.ball([.48,1.49,0],[.60,.70,.49],fur);
+  addOrganicBody('tiger','blackwork',b);
   for (const side of [-1,1]) {
     for (const x of [-.86,.56]) {
       const z=side*.29;
@@ -112,7 +200,6 @@ function tattooTiger(b,part) {
   for(let i=0;i<5;i++) b.ball([-1.52-i*.15,1.28-i*.065,.035],[.065,.12,.12],ink);
 
   // An enlarged, rounded forehead, narrowing into a muzzle with cheek ruffs.
-  b.ball([.91,1.98,0],[.48,.53,.49],fur);
   b.ball([1.13,1.92,0],[.32,.38,.40],light);
   for(const side of [-1,1]) {
     const z=side*.32;
@@ -155,8 +242,7 @@ function feline(b,part,code,variant) {
   // The photographed back piece is black and grey, rather than an orange tiger.
   const body = stripes ? (variant==='blackwork' ? '#8c8984' : '#ce8035') : kitten ? (variant==='black' ? '#35323c' : variant==='sleepy' || variant==='cocotte' ? '#898783' : '#9d806a') : '#bd965d';
   const headY = 1.99, hx = .91;
-  b.ball([-.06,1.33,0],[1.02,.51,.41],body);
-  b.ball([.52,1.53,0],[.53,.49,.42],body);
+  addOrganicBody(code,variant,b);
   for (const s of [-1,1]) {
     for (const [x,back] of [[-.69,true],[.59,false]]) {
       const limb=part(back?'leg-back':'leg-front',(back?-1:1)*s,[x,1.12,s*(back?.28:.26)]);
@@ -172,7 +258,6 @@ function feline(b,part,code,variant) {
       b.ball([.75,1.83+.45*Math.cos(a),.39*Math.sin(a)],[.39,.29,.18],i%2?'#8e5129':'#a06137',[a,0,-.18]);
     }
   }
-  b.ball([hx,headY,0],[.43,.43,.42],body);
   // The 2024 source is a crowned lion; the other lion portrait has no crown.
   if (mane && variant==='crowned') {
     b.poly([[-.34,0],[-.42,.32],[-.19,.18],[0,.39],[.19,.18],[.42,.32],[.34,0]],.16,[.92,2.36,-.08],'#bfa36b',[0,Math.PI/2,0]);
@@ -191,8 +276,17 @@ function feline(b,part,code,variant) {
       b.ball([hx-.14,2.32,z+s*.07],[.096,.12,.055],body);
     }
     if (variant==='sleepy') b.path([[hx+.10,2.06,s*.335],[hx+.20,2.025,s*.36],[hx+.30,2.055,s*.33]],.026,ink);
-    else {b.ball([hx+.20,2.06,s*.318],[.105,.082,.062],ink); b.ball([hx+.23,2.075,s*.358],[.05,.052,.03],amber);}
-    b.ball([hx+.33,1.9,s*.145],[.19,.15,.18],ivory);
+    else {
+      b.ball([hx+.20,2.06,s*.318],[.105,.082,.062],ink);
+      b.ball([hx+.23,2.075,s*.358],[.05,.052,.03],kitten&&variant==='black'?'#b4b3a7':amber);
+      // Layer the iris, pupil and highlight toward the animal's forward view.
+      if(kitten){
+        b.ball([hx+.305,2.065,s*.318],[.018,.062,.050],variant==='black'?'#aaa9a0':'#b4bd72');
+        b.ball([hx+.321,2.065,s*.318],[.010,.042,.021],ink);
+        b.ball([hx+.330,2.087,s*.302],[.006,.014,.011],ivory);
+      }
+    }
+    if(!kitten) b.ball([hx+.33,1.9,s*.145],[.19,.15,.18],ivory);
     if(stripes){
       // Curved tapering bands follow the side of the barrel and flank.
       for(let i=0;i<7;i++){
@@ -234,30 +328,33 @@ function feline(b,part,code,variant) {
 function dog(b,part,pug,variant) {
   const small=variant==='small-dog';
   const color=pug?'#c9af86':small?'#ab8365':'#99877e', dark=pug?'#39302e':small?'#624839':'#645c58';
-  b.ball([0,1.28,0],[.82,.49,.42],color);
+  addOrganicBody(pug?'pug':'dog',variant,b);
   for(const s of [-1,1]) for(const x of [-.54,.51]) {
     const limb=part(x<0?'leg-back':'leg-front',(x<0?-1:1)*s,[x,1.12,s*.27]);
     animatedLeg(limb,x<0,color);
   }
-  b.ball([.67,1.82,0],[.44,.45,.39],color);
   for(const s of [-1,1]){
     if(small) {
       b.poly([[-.17,0],[.13,0],[-.10,.29]],.13,[.53,2.09,s*.29-.06],dark);
-      b.ball([.89,1.73,s*.17],[.18,.12,.16],'#d5b191');
     } else b.ball([.56,1.91,s*.34],[.20,.27,.11],dark,[s*.14,0,-.25]);
     b.ball([.91,1.90,s*.265],[.086,.096,.066],ink);
+    b.ball([1.00,1.905,s*.265],[.013,.052,.043],'#80634a');
+    b.ball([1.012,1.905,s*.265],[.008,.036,.023],ink);
+    b.ball([1.019,1.925,s*.250],[.005,.012,.010],ivory);
     b.ball([.93,1.925,s*.31],[.025,.024,.016],ivory);
   }
-  b.ball([pug?1.0:1.11,1.74,0],[pug?.18:.33,.19,.245],pug?dark:'#e0be98');
   b.ball([pug?1.15:1.38,1.82,0],[.075,.073,.12],ink);
   b.path(pug?[[-.68,1.40,0],[-.94,1.73,0],[-.74,1.92,.02],[-.61,1.74,.04]]:[[-.66,1.4,0],[-1.07,1.47,.04],[-1.36,1.76,.1]],.092,color);
 }
 
 function primateOrBear(b,gorilla) {
   const fur=gorilla?'#44454b':'#d79778', cheeks=gorilla?'#605750':'#f1c6a2';
-  b.ball([-.18,1.25,0],[.63,.79,.49],fur,[0,0,.26]);
-  b.ball([.16,1.88,0],[.57,.56,.62],fur);
-  b.ball([.53,2.18,0],[.42,.48,.415],fur);
+  if(gorilla) addOrganicBody('gorilla','',b);
+  else {
+    b.ball([-.18,1.25,0],[.63,.79,.49],fur,[0,0,.26]);
+    b.ball([.16,1.88,0],[.57,.56,.62],fur);
+    b.ball([.53,2.18,0],[.42,.48,.415],fur);
+  }
   b.ball([.83,2.07,0],[.24,.26,.29],cheeks);
   b.ball([1.0,2.13,0],[.11,.085,.16],ink);
   for (const s of [-1,1]){
@@ -277,8 +374,7 @@ function flight(b,part,code,variant) {
   const owl=code==='owl', eagle=code==='raptor', dragon=code==='dragon';
   const body=variant==='raven'?'#292b30':variant==='hummingbird'?'#6e4f89':owl?'#917654':dragon?'#506f7e':eagle?'#755a44':'#5d8495';
   const light=variant==='raven'?'#44464a':variant==='hummingbird'?'#ab91bd':dragon?'#93b3ad':owl?'#dcc39b':eagle?'#f0e5c8':'#c6d7c4';
-  b.ball([0,1.62,0],[.32,.36,.68],body,[.23,0,0]);
-  b.ball([0,1.78,.50],[owl?.42:.28,owl?.38:.29,.32],owl?body:light);
+  addOrganicBody(code,variant,b);
   if(owl) {
     for (const s of [-1,1]) {
       b.ball([s*.17,1.81,.74],[.20,.22,.058],light);
@@ -326,8 +422,7 @@ function flight(b,part,code,variant) {
 function butterfly(b,part,code,variant) {
   const moth=code==='moth', delicate=code==='insect';
   const outline='#29282a', colour=variant==='blackwork'?'#969493':moth?'#c5a67c':delicate?'#9bbcac':'#d58141';
-  b.ball([0,1.34,.03],[.084,.37,.11],outline);
-  b.ball([0,1.72,.06],[.105,.105,.105],outline);
+  addOrganicBody(code,variant,b);
   if(variant==='mothdog') {
     // The source butterfly encloses a small dog portrait between its wings.
     b.ball([0,1.34,.14],[.15,.20,.07],'#aba7a0');
@@ -381,17 +476,14 @@ function fish(ground,part,code,variant){
   const body=deep?'#545868':betta?'#60899b':sword?'#60818d':'#629c97';
   const fin=deep?'#a59080':betta?'#c77ba1':'#789baf', y=.85;
   if (code==='seahorse'){
-    b.path([[.00,.78,0],[-.03,1.04,0],[.03,1.43,0],[.23,1.54,0]],.13,'#d49f59');
-    b.ball([0,.87,0],[.26,.39,.17],'#e0ae64');
-    b.ball([.21,1.52,.01],[.24,.165,.13],'#e3b76e');
+    addOrganicBody('seahorse',variant,b);
     b.rod([.39,1.49,0],[.60,1.37,0],.094,.061,'#c99252');
     b.ball([.25,1.56,.13],[.039,.04,.02],ink);
     b.path([[0,.63,0],[-.18,.42,0],[-.43,.42,0],[-.47,.56,0],[-.37,.62,0],[-.31,.56,0]],.07,'#cd9858');
     for(let j=0;j<5;j++) b.rod([-.13,1.28-j*.12,0],[-.29,1.31-j*.12,0],.048,.009,'#a97046');
     return;
   }
-  b.ball([.04,y,0],[sword?.87:deep?.65:.61,deep?.44:sword?.22:.30,.245],body);
-  b.ball([.41,y+.04,0],[.32,.78*(deep?.44:.31),.22],body);
+  addOrganicBody(code,variant,b);
   for(const s of [-1,1]){
     b.ball([.47,y+.105,s*.208],[.083,.091,.037],ivory);
     b.ball([.495,y+.104,s*.236],[.049,.055,.026],ink);
@@ -423,8 +515,7 @@ function fish(ground,part,code,variant){
 
 function reptile(b,code){
   if(code==='turtle'){
-    b.ball([0,.44,0],[.71,.45,.53],'#668159');
-    b.ball([.69,.43,0],[.25,.15,.19],'#8f975f');
+    addOrganicBody('turtle','',b);
     for(const s of [-1,1]){
       b.ball([.77,.49,s*.14],[.033,.035,.025],ink);
       for(const x of [-.43,.43]) b.ball([x,.22,s*.38],[.19,.13,.14],'#879259');
@@ -564,9 +655,9 @@ export const supportedModels = Object.freeze((
 ).split(' '));
 function makeTemplate(code,variant,identitySeed,workId) {
   const floralDesign=floralPhotoDesigns[workId]?.[code] || {};
-  const root=new THREE.Group(), body=new Batch(), parts=[];
+  const root=new THREE.Group(), body=new Batch(materialFor(code)), parts=[];
   function part(motion,side,pos){
-    const batch=new Batch();
+    const batch=new Batch(materialFor(code));
     parts.push({batch,motion,side,pos});
     return batch;
   }
@@ -575,6 +666,7 @@ function makeTemplate(code,variant,identitySeed,workId) {
     case 'dog': case 'pug': dog(body,part,code==='pug',variant); break;
     case 'gorilla': primateOrBear(body,true); break;
     case 'bear': littleBear(body); break;
+    case 'flame': buildSculpturalFlame(body); break;
     case 'heart':
       if(variant==='rainbow') rainbowHeart(body);
       else buildSculpture(code,body);
@@ -589,7 +681,7 @@ function makeTemplate(code,variant,identitySeed,workId) {
     case 'snake': case 'turtle': reptile(body,code); break;
     case 'rose':
       if (variant === 'prototype') buildPrototypeRose(body);
-      else plant(body,code,variant,identitySeed,floralDesign);
+      else buildDetailedPlant(body,code,variant,identitySeed,floralDesign);
       break;
     case 'skull':
       if (variant === 'prototype') buildPrototypeSkulls(body);
@@ -597,17 +689,19 @@ function makeTemplate(code,variant,identitySeed,workId) {
       break;
     case 'flower':
       if(variant==='six-petals') sixPetals(body);
-      else plant(body,code,variant,identitySeed,floralDesign);
+      else buildDetailedPlant(body,code,variant,identitySeed,floralDesign);
       break;
     case 'blossom':
       if(variant==='shoulder' || variant==='fine-line') floweringSpray(body,variant==='shoulder');
-      else plant(body,code,variant,identitySeed,floralDesign);
+      else buildDetailedPlant(body,code,variant,identitySeed,floralDesign);
       break;
-    case 'palm': case 'sunflower': case 'lotus': plant(body,code,variant,identitySeed,floralDesign); break;
+    case 'palm': case 'sunflower': case 'lotus': buildDetailedPlant(body,code,variant,identitySeed,floralDesign); break;
     default:
       if(!supportedModels.includes(code)) throw new Error('Motif 3D inconnu : '+code);
       if (!build2024(code,body) && !buildSculpture(code,body,identitySeed,workId)) throw new Error('Motif sans représentation : '+code);
   }
+  addSculpturalDetails(body,code,variant,identitySeed);
+  if(code!=='face') enhanceAnimal({code,variant,workId,identitySeed,body,part});
   // Keep black-and-grey tattoo interpretations neutral rather than applying
   // the default bright colours used by the garden variants.
   if (variant === 'blackwork' || floralDesign.blackwork) {

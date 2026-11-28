@@ -86,6 +86,8 @@ export function animateAnimal(group,time,visitorPosition) {
     // appears, disappears or changes, and is independent of frame rate.
     let motion=pivot.userData.smoothMotion;
     if(!motion) motion=pivot.userData.smoothMotion={x:base.x,z:base.z,time:t};
+    // Give a visitor time to examine the selected moving subject and its photo.
+    if(group.userData.focusUntil > t){x=motion.x-base.x;z=motion.z-base.z;}
     const dt=Math.max(0,Math.min(.1,t-motion.time));
     motion.time=t;
     const blend=t===0 ? 1 : 1-Math.exp(-dt*4.5);
