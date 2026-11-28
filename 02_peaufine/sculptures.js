@@ -107,11 +107,13 @@ function glyph(b,index,x=0,y=0,scale=1){
   b.path(shapes[index%3].map(([px,py])=>[x+px*scale,y+py*scale,0]),.06*scale,brass);
 }
 
-function tribal(b) {
+function tribal(b,seed) {
+  const random=identityFactors(seed), arc=.12+random()*.16;
   for(const s of [-1,1]) {
     b.poly([[0,.02],[.53,.65],[.84,1.55],[.39,1.22],[.59,2.1],[.14,1.53],[.04,.92],[.28,1.07]].map(([x,y])=>[x*s,y]),.21,[0,0,0],ink);
   }
   b.poly([[-.1,.5],[0,2.2],[.16,1.32]],.18,[0,0,.1],silver);
+  for(const side of [-1,1]) b.path([[side*.12,.38,.22],[side*(.44+arc),.74,.22],[side*(.44+arc*.5),1.08,.22]],.035,ink);
 }
 
 function lettering(b) {
@@ -127,8 +129,34 @@ function lips(b) {
 const sculptures = {
   heart, skull, web, eye, compass, lettering, lips, tribal,
   face: (b,seed)=>face(b,false,seed), greenfigure: b=>face(b,true),
-  symbols(b) {glyph(b,0,-.72,.34,.7);glyph(b,1,0,.12,.86);glyph(b,2,.75,.34,.68);},
-  geometry(b) {glyph(b,0,0,0,1.35);b.ring([0,1,0],.56,.035,silver);glyph(b,1,0,.58,.75);},
+  symbols(b,seed) {
+    const random=identityFactors(seed), count=4+Math.floor(random()*3);
+    for(let i=0;i<count;i++) {
+      const x=(i-(count-1)/2)*.29, y=.35+(i%2)*.23;
+      glyph(b,Math.floor(random()*3),x,y,.34+random()*.15);
+    }
+  },
+  geometry(b,seed,workId) {
+    if(workId==='wix-upload-2024-026') {
+      // Fine, curved ornament in the reference, with a pendant.
+      b.path([[0,.08,0],[-.34,.46,0],[-.44,.94,0],[-.15,1.30,0],[0,1.70,0],[.20,1.37,0],[.42,.98,0],[.29,.55,0],[0,.30,0]],.035,ink);
+      for(const side of [-1,1]) b.path([[0,1.25,.03],[side*.44,1.56,.03],[side*.64,1.31,.03],[side*.40,1.09,.03]],.025,ink);
+      for(let j=0;j<5;j++)b.ball([0,.16+j*.22,.08],[.05,.05,.05],brass);
+    } else if(workId==='wix-upload-2025-010' || workId==='wix-upload-2024-012') {
+      // The two photographs depict different geometric armbands.
+      const number=workId==='wix-upload-2025-010'?4:3;
+      for(let row=0;row<number;row++) {
+        const y=.24+row*.40;
+        b.path([[-.88,y,0],[0,y+.05,.04],[.88,y,0]],.04,ink);
+        for(let j=0;j<5;j++) {
+          const x=-.72+j*.36, flip=(j+row+(number===3?1:0))%2?1:-1;
+          b.poly([[-.14,0],[0,flip*.20],[.14,0]],.04,[x,y+.12,.04],ink);
+        }
+      }
+    } else {
+      glyph(b,0,0,0,1.35);b.ring([0,1,0],.56,.035,silver);glyph(b,1,0,.58,.75);
+    }
+  },
   arrows(b) {
     b.rod([0,.05,0],[0,1.93,0],.045,.035,brass);
     b.poly([[-.19,0],[0,.44],[.19,0],[0,.12]],.08,[0,1.82,0],silver);
@@ -192,9 +220,9 @@ const sculptures = {
   rope(b){b.path(Array.from({length:46},(_,i)=>{const a=i/45*tau*2;return [.66*Math.cos(a),.2+i/45*1.25,.66*Math.sin(a)]}),.07,wood);}
 };
 
-export function buildSculpture(code, builder, identitySeed) {
+export function buildSculpture(code, builder, identitySeed, workId) {
   const make = sculptures[code];
   if (!make) return false;
-  make(builder,identitySeed);
+  make(builder,identitySeed,workId);
   return true;
 }

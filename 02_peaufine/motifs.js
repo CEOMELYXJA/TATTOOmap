@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { buildSculpture } from './sculptures.js?v=identity-1';
+import { buildSculpture } from './sculptures.js?v=identity-2';
 import { build2024 } from './motifs-2024.js?v=2024-1';
-import { animateAnimal, animalRest, animalRun, animalStep } from './animal-behaviors.js?v=animals-4';
+import { animateAnimal, animalRest, animalRun, animalStep } from './animal-behaviors.js?v=animals-5';
 import {
   buildPrototypeRose, buildPrototypeSkulls, rainbowHeart, littleBear,
   elbowWebs, floweringSpray, sixPetals
@@ -153,7 +153,7 @@ function feline(b,part,code,variant) {
   if (code==='tiger' && variant==='blackwork') return tattooTiger(b,part);
   const stripes = code==='tiger', mane = code==='lion', kitten = code==='cat', cub = code==='cub';
   // The photographed back piece is black and grey, rather than an orange tiger.
-  const body = stripes ? (variant==='blackwork' ? '#8c8984' : '#ce8035') : kitten ? (variant==='black' ? '#35323c' : '#9d806a') : '#bd965d';
+  const body = stripes ? (variant==='blackwork' ? '#8c8984' : '#ce8035') : kitten ? (variant==='black' ? '#35323c' : variant==='sleepy' || variant==='cocotte' ? '#898783' : '#9d806a') : '#bd965d';
   const headY = 1.99, hx = .91;
   b.ball([-.06,1.33,0],[1.02,.51,.41],body);
   b.ball([.52,1.53,0],[.53,.49,.42],body);
@@ -173,6 +173,14 @@ function feline(b,part,code,variant) {
     }
   }
   b.ball([hx,headY,0],[.43,.43,.42],body);
+  // The 2024 source is a crowned lion; the other lion portrait has no crown.
+  if (mane && variant==='crowned') {
+    b.poly([[-.34,0],[-.42,.32],[-.19,.18],[0,.39],[.19,.18],[.42,.32],[.34,0]],.16,[.92,2.36,-.08],'#bfa36b',[0,Math.PI/2,0]);
+    for(const z of [-.27,0,.27]) b.ball([1.03,2.43,z],[.055,.055,.055],'#d6c794');
+  }
+  if (kitten && variant==='sleepy') {
+    for(const z of [-.31,.31]) for(let k=0;k<3;k++) b.path([[-.45+k*.24,1.68,z],[-.32+k*.24,1.52,z*1.1],[-.42+k*.24,1.38,z*1.1]],.025,ink);
+  }
   for(const s of [-1,1]){
     const z=s*.27;
     if(kitten) {
@@ -182,8 +190,8 @@ function feline(b,part,code,variant) {
       b.ball([hx-.17,2.31,z],[.14,.18,.11],ink);
       b.ball([hx-.14,2.32,z+s*.07],[.096,.12,.055],body);
     }
-    b.ball([hx+.20,2.06,s*.318],[.105,.082,.062],ink);
-    b.ball([hx+.23,2.075,s*.358],[.05,.052,.03],amber);
+    if (variant==='sleepy') b.path([[hx+.10,2.06,s*.335],[hx+.20,2.025,s*.36],[hx+.30,2.055,s*.33]],.026,ink);
+    else {b.ball([hx+.20,2.06,s*.318],[.105,.082,.062],ink); b.ball([hx+.23,2.075,s*.358],[.05,.052,.03],amber);}
     b.ball([hx+.33,1.9,s*.145],[.19,.15,.18],ivory);
     if(stripes){
       // Curved tapering bands follow the side of the barrel and flank.
@@ -265,10 +273,10 @@ function primateOrBear(b,gorilla) {
   }
 }
 
-function flight(b,part,code) {
+function flight(b,part,code,variant) {
   const owl=code==='owl', eagle=code==='raptor', dragon=code==='dragon';
-  const body=owl?'#917654':dragon?'#506f7e':eagle?'#755a44':'#5d8495';
-  const light=dragon?'#93b3ad':owl?'#dcc39b':eagle?'#f0e5c8':'#c6d7c4';
+  const body=variant==='raven'?'#292b30':variant==='hummingbird'?'#6e4f89':owl?'#917654':dragon?'#506f7e':eagle?'#755a44':'#5d8495';
+  const light=variant==='raven'?'#44464a':variant==='hummingbird'?'#ab91bd':dragon?'#93b3ad':owl?'#dcc39b':eagle?'#f0e5c8':'#c6d7c4';
   b.ball([0,1.62,0],[.32,.36,.68],body,[.23,0,0]);
   b.ball([0,1.78,.50],[owl?.42:.28,owl?.38:.29,.32],owl?body:light);
   if(owl) {
@@ -299,12 +307,18 @@ function flight(b,part,code) {
       }
     }
   }
+  if(variant==='heraldic') {
+    // The source is an eagle crest: shield and crown distinguish it from a live raptor.
+    b.poly([[-.34,.35],[.34,.35],[.29,-.11],[0,-.42],[-.29,-.11]],.08,[0,1.47,.50],'#646b76');
+    b.path([[-.24,1.70,.62],[0,1.34,.62],[.24,1.70,.62]],.025,ivory);
+    b.poly([[-.28,0],[-.28,.20],[-.12,.10],[0,.26],[.12,.10],[.28,.20],[.28,0]],.07,[0,2.13,.45],'#c6ad7c');
+  }
   if(dragon) {
     b.ball([0,1.72,.83],[.19,.12,.23],body);
     b.path([[0,1.52,-.54],[.1,1.39,-.98],[.46,1.53,-1.40],[.59,1.77,-1.67]],.09,body);
     for(let j=0;j<6;j++) b.rod([0,1.92-j*.04,.34-j*.17],[0,2.10-j*.055,.25-j*.17],.065,.003,ivory);
   } else {
-    b.rod([0,1.74,.77],[0,1.66,.99],.105,.008,'#d9a850');
+    b.rod([0,1.74,.77],[0,1.66,variant==='hummingbird'?1.25:.99],variant==='hummingbird'?.045:.105,.008,variant==='raven'?ink:'#d9a850');
     for(const side of [-1,0,1]) b.ball([side*.10,1.47,-.74],[.10,.045,.39],body,[-.15,side*.15,0]);
   }
 }
@@ -314,6 +328,20 @@ function butterfly(b,part,code,variant) {
   const outline='#29282a', colour=variant==='blackwork'?'#969493':moth?'#c5a67c':delicate?'#9bbcac':'#d58141';
   b.ball([0,1.34,.03],[.084,.37,.11],outline);
   b.ball([0,1.72,.06],[.105,.105,.105],outline);
+  if(variant==='mothdog') {
+    // The source butterfly encloses a small dog portrait between its wings.
+    b.ball([0,1.34,.14],[.15,.20,.07],'#aba7a0');
+    for(const side of [-1,1]) {
+      b.ball([side*.135,1.46,.14],[.065,.13,.04],outline);
+      b.ball([side*.07,1.40,.21],[.024,.025,.015],outline);
+    }
+    b.ball([0,1.29,.22],[.05,.035,.02],outline);
+  }
+  if(variant==='ornamental') {
+    b.ring([0,1.36,-.12],.48,.018,'#bfaa85');
+    for(const side of [-1,1]) b.path([[side*.12,1.05,0],[side*.44,.84,0],[side*.71,.72,0]],.018,outline);
+  }
+
   for(const s of [-1,1]){
     b.path([[s*.045,1.79,.07],[s*.095,1.94,.08],[s*.19,2.00,.055]],.014,outline);
     const w=part('flutter',s,[s*.04,1.43,0]);
@@ -346,7 +374,7 @@ function pond(b) {
   }
 }
 
-function fish(ground,part,code){
+function fish(ground,part,code,variant){
   pond(ground);
   const b=part('fish-body',1,[0,0,0]);
   const deep=code==='anglerfish', betta=code==='betta', sword=code==='swordfish';
@@ -379,6 +407,12 @@ function fish(ground,part,code){
   }
   b.poly([[-.48,0],[-.08,sword?.61:.35],[.10,0]],.045,[0,y+(sword?.15:.24),0],fin);
   if(sword) b.rod([.61,y+.05,0],[1.55,y+.14,0],.089,.002,body);
+  if(deep && variant==='spiny') {
+    for(let j=0;j<7;j++) {
+      const x=-.46+j*.15, lift=.15+Math.sin(j*Math.PI/7)*.14;
+      b.rod([x,y+.30,0],[x-.08,y+.30+lift,0],.035,.002,ink);
+    }
+  }
   if(deep){
     b.ball([.62,y-.08,.09],[.15,.20,.16],ink,[0,0,-.32]);
     for(let j=0;j<5;j++) b.rod([.52+j*.052,y+.046,.216],[.53+j*.049,y-.08,.223],.03,.001,ivory);
@@ -414,12 +448,12 @@ function leaf(b,a,end,color){
   const q=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());
   b.add(unitSphere,mid.toArray(),[length*.15,length*.52,length*.076],color,identity,q);
 }
-function bloom(b,x,y,z,scale,code,tint) {
+function bloom(b,x,y,z,scale,code,tint,shape={}) {
   const rose=code==='rose', sunflower=code==='sunflower', lotus=code==='lotus', small=code==='blossom';
-  const petals=rose?11:sunflower?16:lotus?10:small?5:6;
-  const hue=rose?'#b74455':sunflower?'#df9c2a':lotus?'#df919f':tint;
-  const tip=rose?'#dc6572':sunflower?'#f1b942':lotus?'#f1bcca':small?'#edd2cb':'#c98ba0';
-  const layers=rose||lotus?3:sunflower?2:1;
+  const petals=shape.petals ?? (rose?11:sunflower?16:lotus?10:small?5:6);
+  const hue=shape.hue ?? (rose?'#b74455':sunflower?'#df9c2a':lotus?'#df919f':tint);
+  const tip=shape.tip ?? (rose?'#dc6572':sunflower?'#f1b942':lotus?'#f1bcca':small?'#edd2cb':'#c98ba0');
+  const layers=shape.layers ?? (rose||lotus?3:sunflower?2:1);
   // Petals curl around a gently forward-facing corolla so side views retain depth.
   for(let k=0;k<layers;k++) {
     const n=petals-k*(rose?3:1), radius=(rose?.33:lotus?.33:.36)*scale*(1-k*.25);
@@ -427,8 +461,8 @@ function bloom(b,x,y,z,scale,code,tint) {
       const a=2*Math.PI*j/n+k*.67;
       const p=[x+Math.sin(a)*radius,y+Math.cos(a)*radius*.81+k*.036*scale,
         z-Math.cos(a)*radius*.44+k*.104*scale];
-      const width=(rose?.24:lotus?.16:sunflower?.085:small?.18:.23)*scale*(1-k*.17);
-      const height=(rose?.26:sunflower?.33:.31)*scale*(1-k*.18);
+      const width=(shape.width ?? (rose?.24:lotus?.16:sunflower?.085:small?.18:.23))*scale*(1-k*.17);
+      const height=(shape.height ?? (rose?.26:sunflower?.33:.31))*scale*(1-k*.18);
       b.ball(p,[width,height,(rose?.09:.065)*scale],j%4===0?tip:hue,[-.42,rose?.34:0,-a+(rose?.42:.05)]);
     }
   }
@@ -439,7 +473,36 @@ function bloom(b,x,y,z,scale,code,tint) {
   }
 }
 
-function plant(b,code,variant){
+// Arrangements below follow the visible number and type of flowers in the
+// linked tattoo photos. Remaining floral works get their own stable silhouette.
+const floralPhotoDesigns={
+  'wix-upload-2024-005':{rose:{count:2,blackwork:true}},
+  'wix-upload-2024-007':{flower:{count:4,branch:true,small:true,hue:'#c45b70',tip:'#e39aab'}},
+  'wix-upload-2024-008':{rose:{count:1,hue:'#74353f',tip:'#a2555c'}},
+  'wix-upload-2024-009':{flower:{count:1,petals:12,blackwork:true}},
+  'wix-upload-2024-015':{rose:{count:1,blackwork:true}},
+  'wix-upload-2024-017':{flower:{count:2,petals:5,hue:'#c68f83',tip:'#e3b6a2'}},
+  'wix-upload-2024-019':{rose:{count:1,blackwork:true}},
+  'wix-upload-2024-022':{flower:{count:3,petals:6,hue:'#cd5e87',tip:'#e590ae'}},
+  'wix-upload-2024-023':{flower:{count:3,petals:7,hue:'#b77d8b',tip:'#d8a7b0'}},
+  'wix-upload-2024-024':{flower:{count:4,branch:true,small:true,blackwork:true}},
+  'wix-upload-2024-025':{rose:{count:3,blackwork:true}},
+  'wix-upload-2024-031':{flower:{count:2,branch:true,petals:5,blackwork:true}},
+  'wix-upload-2024-032':{flower:{count:2,petals:13,layers:3,width:.13,hue:'#829a9e',tip:'#b8c5c4'}},
+  'wix-upload-2024-033':{flower:{count:3,petals:7,blackwork:true}},
+  'wix-upload-2024-040':{rose:{count:1,blackwork:true}},
+  'wix-upload-2024-046':{flower:{count:3,petals:5,blackwork:true}},
+  'wix-upload-2025-002':{sunflower:{count:1},flower:{count:2,petals:7}},
+  'wix-upload-2025-026':{rose:{count:1,blackwork:true}},
+  'wix-upload-2025-027':{flower:{count:2,blackwork:true}},
+  'wix-upload-2025-028':{rose:{count:2,hue:'#b15365',tip:'#d88998'}},
+  'wix-upload-2025-032':{blossom:{count:5,branch:true}},
+  'wix-upload-2025-034':{flower:{count:1,petals:9,hue:'#ca9b8b',tip:'#ecd2bf'}},
+  'wix-upload-2025-037':{rose:{count:1,blackwork:true}},
+  'wix-upload-2026-078':{rose:{count:2},flower:{count:2}}
+};
+function floralRandom(seed){let state=seed>>>0;return()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};}
+function plant(b,code,variant,identitySeed,design={}){
   if (code==='palm'){
     b.path([[0,0,0],[.09,.88,.03],[-.07,1.65,0],[.08,2.37,0]],.12,'#9d7853');
     for(let j=0;j<9;j++){
@@ -452,38 +515,55 @@ function plant(b,code,variant){
     }
     return;
   }
-  const tint=variant==='plum'?'#955e82':'#cf99ab';
+  const rand=floralRandom(identitySeed || 1);
+  const tint=design.hue || (variant==='plum'?'#955e82':'#cf99ab');
+  const shape={...design};
+  if(!shape.petals && code==='flower') shape.petals=5+Math.floor(rand()*4);
+  const lean=(rand()-.5)*.28, leafLength=.40+rand()*.24;
   if(code==='lotus'){
     pond(b);
     b.ball([-.15,.17,.02],[.58,.050,.42],'#78966b');
     b.rod([0,.13,0],[.1,.84,0],.049,.035,stem);
-    bloom(b,.1,.86,0,1.32,code,tint); return;
+    bloom(b,.1,.86,0,1.32,code,tint,shape); return;
   }
-  if(code==='blossom') {
-    const branch=[[0,0,0],[-.16,.68,0],[.07,1.36,.02],[.52,2.04,.02]];
-    b.path(branch,.056,'#78664f');
-    for(const [x,y,z,s] of [[-.1,.67,.1,-1],[.04,1.12,-.08,1],[.05,1.36,.05,-1],[.34,1.83,0,1]]){
-      b.rod([x,y,z],[x+s*.35,y+.25,z+.05],.034,.016,'#77634f');
-      leaf(b,[x,y,z],[x+s*.23,y+.32,z-.05],leaves);
-      bloom(b,x+s*.38,y+.29,z+.07,.42,code,tint);
+  if(code==='blossom' || design.branch) {
+    const count=design.count || (code==='blossom'?4+Math.floor(rand()*3):4);
+    const tilt=.31+rand()*.28;
+    b.path([[0,0,0],[lean*.6,.70,0],[tilt*.45,1.40,.02],[tilt,2.05,.02]],.045,'#78664f');
+    for(let i=0;i<count;i++){
+      const y=.52+i*1.44/Math.max(1,count-1), x=tilt*y/2.05, side=i%2?-1:1;
+      const reach=(design.small?.23:.31)+rand()*.12;
+      b.rod([x,y,0],[x+side*reach,y+.23,.035],.029,.012,'#77634f');
+      leaf(b,[x,y,0],[x+side*(reach*.7),y+.25,.04],leaves);
+      bloom(b,x+side*reach,y+.26,.04,design.small?.34:.43,'blossom',tint,shape);
     }
-    bloom(b,.52,2.06,.02,.52,code,tint); return;
+    return;
   }
-  b.path([[0,0,0],[-.09,.62,.03],[.13,1.32,0],[.075,1.73,.03]],code==='sunflower'?.064:.043,stem);
-  for(const [y,s] of [[.47,-1],[.77,1],[1.13,-1]]){
-    const x=y>1?.11:-.04;
-    b.rod([x,y,0],[x+s*.15,y+.11,.055],.023,.015,stem);
-    leaf(b,[x+s*.09,y+.06,.02],[x+s*.57,y+.32,.15],leaves);
-    if(code==='rose') b.rod([x,y+.18,.02],[x+s*.09,y+.27,.03],.026,.004,'#945e56');
+  const count=design.count || 1;
+  // Distinct stems, leaves and arrangements preserve the subject's silhouette.
+  b.path([[0,0,0],[lean,.62,.03],[lean*.55,1.32,0],[lean,1.73,.03]],code==='sunflower'?.064:.043,stem);
+  for(let i=0;i<3;i++){
+    const y=.43+i*.32, side=(i%2?-1:1)*(rand()>.5?1:-1), x=lean*y/1.73;
+    b.rod([x,y,0],[x+side*.16,y+.12,.055],.023,.015,stem);
+    leaf(b,[x+side*.09,y+.06,.02],[x+side*leafLength,y+.27+rand()*.12,.15],leaves);
+    if(code==='rose') b.rod([x,y+.18,.02],[x+side*.09,y+.27,.03],.026,.004,'#945e56');
   }
-  bloom(b,.075,1.77,.03,code==='sunflower'?1.29:1.1,code,tint);
+  bloom(b,lean,1.77,.03,code==='sunflower'?1.29:1.05,code,tint,shape);
+  for(let i=1;i<count;i++){
+    const side=i%2?-1:1, height=1.36-(i-1)*.25, x=lean+side*(.47+(i>2?.13:0));
+    b.path([[lean*.4,.48+i*.12,0],[lean+side*.20,height-.22,.03],[x,height,.04]],.032,stem);
+    leaf(b,[lean+side*.18,height-.27,.03],[x+side*.15,height-.12,.08],leaves);
+    bloom(b,x,height,.06,.70+rand()*.10,code,tint,shape);
+  }
+
 }
 
 const templates = new Map();
 export const supportedModels = Object.freeze((
   'tiger flower symbols gorilla dragon bird turtle face bear heart rose web snake butterfly skull flame blossom lips dog paw pug betta arrows lotus moon geometry tribal lion cub lettering cat sunflower helmet eye raptor cassette insect palm anglerfish sailboat seahorse fish cross owl music greenfigure swordfish moth scales compass hand plane rope forest mechanism jellyfish octopus frog vehicle wings scorpion reaper lioness elk anubis windmill'
 ).split(' '));
-function makeTemplate(code,variant,identitySeed) {
+function makeTemplate(code,variant,identitySeed,workId) {
+  const floralDesign=floralPhotoDesigns[workId]?.[code] || {};
   const root=new THREE.Group(), body=new Batch(), parts=[];
   function part(motion,side,pos){
     const batch=new Batch();
@@ -503,34 +583,34 @@ function makeTemplate(code,variant,identitySeed) {
       if(variant==='elbows') elbowWebs(body);
       else buildSculpture(code,body);
       break;
-    case 'bird': case 'owl': case 'raptor': case 'dragon': flight(body,part,code); break;
+    case 'bird': case 'owl': case 'raptor': case 'dragon': flight(body,part,code,variant); break;
     case 'butterfly': case 'moth': case 'insect': butterfly(body,part,code,variant); break;
-    case 'seahorse': case 'fish': case 'betta': case 'anglerfish': case 'swordfish': fish(body,part,code); break;
+    case 'seahorse': case 'fish': case 'betta': case 'anglerfish': case 'swordfish': fish(body,part,code,variant); break;
     case 'snake': case 'turtle': reptile(body,code); break;
     case 'rose':
       if (variant === 'prototype') buildPrototypeRose(body);
-      else plant(body,code,variant);
+      else plant(body,code,variant,identitySeed,floralDesign);
       break;
     case 'skull':
       if (variant === 'prototype') buildPrototypeSkulls(body);
-      else buildSculpture(code,body,identitySeed);
+      else buildSculpture(code,body,identitySeed,workId);
       break;
     case 'flower':
       if(variant==='six-petals') sixPetals(body);
-      else plant(body,code,variant);
+      else plant(body,code,variant,identitySeed,floralDesign);
       break;
     case 'blossom':
       if(variant==='shoulder' || variant==='fine-line') floweringSpray(body,variant==='shoulder');
-      else plant(body,code,variant);
+      else plant(body,code,variant,identitySeed,floralDesign);
       break;
-    case 'palm': case 'sunflower': case 'lotus': plant(body,code,variant); break;
+    case 'palm': case 'sunflower': case 'lotus': plant(body,code,variant,identitySeed,floralDesign); break;
     default:
       if(!supportedModels.includes(code)) throw new Error('Motif 3D inconnu : '+code);
-      if (!build2024(code,body) && !buildSculpture(code,body,identitySeed)) throw new Error('Motif sans représentation : '+code);
+      if (!build2024(code,body) && !buildSculpture(code,body,identitySeed,workId)) throw new Error('Motif sans représentation : '+code);
   }
   // Keep black-and-grey tattoo interpretations neutral rather than applying
   // the default bright colours used by the garden variants.
-  if (variant === 'blackwork') {
+  if (variant === 'blackwork' || floralDesign.blackwork) {
     for (const batch of [body, ...parts.map(part => part.batch)]) {
       for (let i=0; i<batch.colors.length; i+=3) {
         const value = batch.colors[i]*.2126 + batch.colors[i+1]*.7152 + batch.colors[i+2]*.0722;
@@ -576,6 +656,15 @@ function variantFor(code,work,seed){
 }
 
 const photoVariants = {
+  'wix-upload-2024-013': {bird:'raven'},
+  'wix-upload-2024-014': {bird:'hummingbird'},
+  'wix-upload-2024-020': {raptor:'heraldic'},
+  'wix-upload-2024-028': {lion:'crowned'},
+  'wix-upload-2024-038': {moth:'mothdog'},
+  'wix-upload-2024-045': {anglerfish:'spiny'},
+  'wix-upload-2025-023': {cat:'sleepy'},
+  'wix-upload-2025-041': {moth:'ornamental'},
+  'wix-upload-2026-071': {cat:'cocotte'},
   'wix-upload-2025-001': {cat:'black',rose:'blackwork',blossom:'blackwork'},
   'wix-upload-2025-002': {sunflower:'blackwork',flower:'blackwork'},
   'wix-upload-2025-003': {helmet:'blackwork'},
@@ -628,10 +717,10 @@ export function createMotif(work){
     const variant=variantFor(code,work,seed);
     // Faces and skulls belong to a particular tattoo, even when the same
     // type is used as a companion in another composition.
-    const individual=code==='face' || code==='skull';
+    const individual=code==='face' || code==='skull' || code==='symbols' || code==='geometry' || code==='tribal' || flora.has(code);
     const identitySeed=individual?hash(String(work.id || work.title)+':'+code+':'+i):0;
     const key=code+':'+variant+(individual?':'+String(work.id || work.title)+':'+i:'');
-    if(!templates.has(key)) templates.set(key,makeTemplate(code,variant,identitySeed));
+    if(!templates.has(key)) templates.set(key,makeTemplate(code,variant,identitySeed,work.id));
     const piece=templates.get(key).clone(), pivot=new THREE.Group();
     pivot.add(piece); group.add(pivot);
     if(i>0){
