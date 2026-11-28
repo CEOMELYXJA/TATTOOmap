@@ -262,22 +262,25 @@ function trees(){
   makeShortGrass();
 }
 
-// Textured clumps of short grass cover the walkable floor. Each clump is two
-// crossed cards sharing one procedural, transparent blade texture and one draw.
+// Fine blades overlap evenly across the walkable ground. The texture and
+// geometry are shared; GPU wind bends the tips while roots stay fixed.
+const grassWind={value:0};
 function makeShortGrass(){
   const textureCanvas=document.createElement('canvas');
-  textureCanvas.width=textureCanvas.height=128;
+  textureCanvas.width=textureCanvas.height=256;
   const ctx=textureCanvas.getContext('2d'), random=rng(39261);
-  for(let i=0;i<30;i++){
-    const x=4+random()*120, height=35+random()*85, lean=(random()-.5)*31;
-    const width=1.4+random()*2.7;
-    const gradient=ctx.createLinearGradient(x,128,x+lean,128-height);
-    gradient.addColorStop(0,'#3b5230');
-    gradient.addColorStop(.60,i%3===0?'#829165':'#657c4e');
-    gradient.addColorStop(1,i%4===0?'#b0b997':'#91a776');
+  const count=82;
+  for(let i=0;i<count;i++){
+    const x=(i+.15+random()*.7)*256/count;
+    const height=125+random()*125, lean=(random()-.5)*18;
+    const width=.42+random()*.62;
+    const gradient=ctx.createLinearGradient(x,256,x+lean,256-height);
+    gradient.addColorStop(0,'#394c2b');
+    gradient.addColorStop(.55,i%3===0?'#738b50':'#5c7541');
+    gradient.addColorStop(1,i%4===0?'#b2c48b':'#91aa6c');
     ctx.fillStyle=gradient;ctx.beginPath();
-    ctx.moveTo(x-width,128);ctx.quadraticCurveTo(x+lean*.30,128-height*.57,x+lean,128-height);
-    ctx.quadraticCurveTo(x+lean*.58,128-height*.45,x+width,128);ctx.closePath();ctx.fill();
+    ctx.moveTo(x-width,256);ctx.quadraticCurveTo(x+lean*.25,256-height*.52,x+lean,256-height);
+    ctx.quadraticCurveTo(x+lean*.62,256-height*.45,x+width,256);ctx.closePath();ctx.fill();
   }
   const texture=new THREE.CanvasTexture(textureCanvas);texture.colorSpace=THREE.SRGBColorSpace;
   const geo=new THREE.BufferGeometry();
@@ -287,14 +290,27 @@ function makeShortGrass(){
   ],3));
   geo.setAttribute('uv',new THREE.Float32BufferAttribute([0,0,1,0,0,1,1,1,0,0,1,0,0,1,1,1],2));
   geo.setIndex([0,1,2,2,1,3,4,5,6,6,5,7]);geo.computeVertexNormals();
-  const material=new THREE.MeshStandardMaterial({map:texture,transparent:false,alphaTest:.28,side:THREE.DoubleSide,roughness:1,color:0xc4d0ad});
-  const grass=[], step=isTouch?1.08:.90, detail=rng(778201);
+  const material=new THREE.MeshStandardMaterial({map:texture,transparent:false,alphaTest:.18,side:THREE.DoubleSide,roughness:1,color:0xd2dcbf});
+  material.onBeforeCompile=shader=>{
+    shader.uniforms.grassTime=grassWind;
+    shader.vertexShader=shader.vertexShader.replace('#include <common>', '#include <common>\nuniform float grassTime;');
+    shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      #ifdef USE_INSTANCING
+        vec2 root = instanceMatrix[3].xz;
+        float breeze = sin(grassTime * 1.05 + root.x * 0.14 + root.y * 0.10) * 0.13;
+        breeze += sin(grassTime * 1.63 + root.x * 0.22 - root.y * 0.16) * 0.045;
+        float tip = position.y * position.y;
+        transformed.x += breeze * tip;
+        transformed.z += breeze * tip * 0.42;
+      #endif`);
+  };
+  const grass=[], step=isTouch?.88:.72, detail=rng(778201);
   for(let z=-91;z<=91;z+=step) for(let x=-91;x<=91;x+=step){
-    const gx=x+(detail()-.5)*step*.8,gz=z+(detail()-.5)*step*.8;
+    const gx=x+(detail()-.5)*step*.25,gz=z+(detail()-.5)*step*.25;
     // Keep the existing pond water clear of grass.
     if (((gx-56)/8)**2+((gz-30)/4.4)**2 < 1) continue;
-    const height=.18+detail()*.22, width=.65+detail()*.37;
-    grass.push({x:gx,y:terrain(gx,gz)-.02,z:gz,sx:width,sy:height,sz:width,rot:detail()*Math.PI});
+    const height=.20+detail()*.15, width=step*(1.20+detail()*.15);
+    grass.push({x:gx,y:terrain(gx,gz)-.025,z:gz,sx:width,sy:height,sz:width,rot:detail()*Math.PI});
   }
   placeInstanced(geo,material,grass.length,i=>grass[i]);
 }
@@ -638,6 +654,7 @@ function setupTouch(){
   $('#mobileLook').onclick=()=>showToast('Glisse sur le paysage pour tourner la caméra.');
 }
 function animateDecor(t){
+  grassWind.value=prefersReducedMotion.matches ? 0 : t;
   for (const group of activeMotifs.values()) animateMotif(group, prefersReducedMotion.matches ? 0 : t, camera.position);
   const attr=fleckGeo.attributes.position;for(let i=0;i<flecks.length;i++)attr.setY(i,flecks[i].y+Math.sin(t*.85+flecks[i].offset)*.38);attr.needsUpdate=true;
 }
