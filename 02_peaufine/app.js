@@ -81,7 +81,8 @@ function addSky(){
 function makeGround(){
   const seg=110,size=240;const geo=new THREE.PlaneGeometry(size,size,seg,seg);geo.rotateX(-Math.PI/2);
   const pos=geo.attributes.position, colors=[];const c=new THREE.Color();
-  const biomeColors=biomes.map(b=>new THREE.Color(palette[b.id]).lerp(new THREE.Color('#e3ded1'),.58));
+  // Grass-coloured soil underneath the blades avoids beige gaps at a distance.
+  const biomeColors=['#659B43','#84B85C','#659B43'].map(color=>new THREE.Color(color));
   for(let i=0;i<pos.count;i++){
     const x=pos.getX(i),z=pos.getZ(i);pos.setY(i,terrain(x,z));
     // Blend the three soils instead of drawing hard biome borders.
@@ -91,7 +92,6 @@ function makeGround(){
   }
   pos.needsUpdate=true;geo.computeVertexNormals();geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
   const groundMaterial = new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,metalness:0});
-  applyTexture(groundMaterial, 'map', 'ground.jpg', [48,48], true);
   applyTexture(groundMaterial, 'normalMap', 'ground-normal.jpg', [48,48]);
   groundMaterial.normalScale.set(.42,.42);
   scene.add(new THREE.Mesh(geo,groundMaterial));
@@ -124,7 +124,6 @@ function makeGround(){
   // Both orientations are present around the square perimeter.
   const skirtMaterial=groundMaterial.clone();skirtMaterial.side=THREE.DoubleSide;
   // Keep the same texture callbacks as the foreground material.
-  applyTexture(skirtMaterial,'map','ground.jpg',[48,48],true);
   applyTexture(skirtMaterial,'normalMap','ground-normal.jpg',[48,48]);
   scene.add(new THREE.Mesh(skirt,skirtMaterial));
 }
@@ -263,58 +262,106 @@ function trees(){
   makeShortGrass();
 }
 
-// Fine blades overlap evenly across the walkable ground. The texture and
-// geometry are shared; GPU wind bends the tips while roots stay fixed.
+// Individual tapered, three-dimensional blades share instanced geometry.
+// Wind bends only their tips; the roots stay fixed in the grass-coloured soil.
 const grassWind={value:0};
+const grassAreas=[];
+let grassLodAt=-Infinity;
 function makeShortGrass(){
-  const textureCanvas=document.createElement('canvas');
-  textureCanvas.width=textureCanvas.height=256;
-  const ctx=textureCanvas.getContext('2d'), random=rng(39261);
-  const count=82;
-  for(let i=0;i<count;i++){
-    const x=(i+.15+random()*.7)*256/count;
-    const height=125+random()*125, lean=(random()-.5)*18;
-    const width=.42+random()*.62;
-    const gradient=ctx.createLinearGradient(x,256,x+lean,256-height);
-    gradient.addColorStop(0,'#394c2b');
-    gradient.addColorStop(.55,i%3===0?'#738b50':'#5c7541');
-    gradient.addColorStop(1,i%4===0?'#b2c48b':'#91aa6c');
-    ctx.fillStyle=gradient;ctx.beginPath();
-    ctx.moveTo(x-width,256);ctx.quadraticCurveTo(x+lean*.25,256-height*.52,x+lean,256-height);
-    ctx.quadraticCurveTo(x+lean*.62,256-height*.45,x+width,256);ctx.closePath();ctx.fill();
+  const vertices=[], colors=[], bladeIndices=[], faces=[];
+  // Close to the visitor each instance has ten individual blades; five of
+  // those continue into the distance for a gentler GPU load.
+  // The vertex shader adds a different stable offset and bend for every blade.
+  const starts=[[-5.0,-3.8],[4.8,-3.5],[0,5.0],[-4.7,4.3],[4.9,4.7],
+    [-1.2,-5.6],[-5.4,.3],[5.5,.6],[-2.5,2.6],[2.6,-1.8]];
+  function bladeGeometry(){
+    const geometry=new THREE.BufferGeometry();
+    geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+    geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+    geometry.setAttribute('bladeIndex',new THREE.Float32BufferAttribute(bladeIndices,1));
+    geometry.setIndex(faces);geometry.computeVertexNormals();return geometry;
   }
-  const texture=new THREE.CanvasTexture(textureCanvas);texture.colorSpace=THREE.SRGBColorSpace;
-  const geo=new THREE.BufferGeometry();
-  geo.setAttribute('position',new THREE.Float32BufferAttribute([
-    -.5,0,0,.5,0,0,-.5,1,0,.5,1,0,
-    0,0,-.5,0,0,.5,0,1,-.5,0,1,.5
-  ],3));
-  geo.setAttribute('uv',new THREE.Float32BufferAttribute([0,0,1,0,0,1,1,1,0,0,1,0,0,1,1,1],2));
-  geo.setIndex([0,1,2,2,1,3,4,5,6,6,5,7]);geo.computeVertexNormals();
-  const material=new THREE.MeshStandardMaterial({map:texture,transparent:false,alphaTest:.18,side:THREE.DoubleSide,roughness:1,color:0xd2dcbf});
+  let geo;
+  for(let blade=0;blade<starts.length;blade++){
+    const [ox,oz]=starts[blade], first=vertices.length/3;
+    const variation=[.88,1.04,.96,1.08,.92,1.02,.86,.99,1.07,.93][blade];
+    for(const [height,radius] of [[0,.50],[.56,.28]]){
+      for(let k=0;k<3;k++){
+        const angle=k*Math.PI*2/3;
+        vertices.push(ox+Math.cos(angle)*radius, height*variation,
+          oz+Math.sin(angle)*radius*.22+height*height*1.25);
+        const shade=height===0?.60:.83;
+        colors.push(shade,shade,shade);bladeIndices.push(blade);
+      }
+    }
+    vertices.push(ox,variation,oz+2.35);colors.push(1,1,1);bladeIndices.push(blade);
+    for(let k=0;k<3;k++){
+      const n=(k+1)%3;
+      faces.push(first+k,first+n,first+3+k,first+n,first+3+n,first+3+k);
+      faces.push(first+3+k,first+3+n,first+6);
+    }
+    if(blade===4) geo=bladeGeometry();
+  }
+  const denseGeo=bladeGeometry();
+  const material=new THREE.MeshStandardMaterial({vertexColors:true,side:THREE.DoubleSide,roughness:1});
   material.onBeforeCompile=shader=>{
     shader.uniforms.grassTime=grassWind;
-    shader.vertexShader=shader.vertexShader.replace('#include <common>', '#include <common>\nuniform float grassTime;');
+    shader.vertexShader=shader.vertexShader.replace('#include <common>', '#include <common>\nuniform float grassTime;\nattribute float bladeIndex;');
     shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       #ifdef USE_INSTANCING
-        vec2 root = instanceMatrix[3].xz;
-        float breeze = sin(grassTime * 1.05 + root.x * 0.14 + root.y * 0.10) * 0.13;
-        breeze += sin(grassTime * 1.63 + root.x * 0.22 - root.y * 0.16) * 0.045;
-        float tip = position.y * position.y;
-        transformed.x += breeze * tip;
-        transformed.z += breeze * tip * 0.42;
+        vec2 root = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xz;
+        float seed = fract(sin(dot(root, vec2(12.9898, 78.233)) + bladeIndex * 37.719) * 43758.5453);
+        float other = fract(seed * 47.163 + bladeIndex * 0.317);
+        float tip = min(position.y, 1.0);
+        tip *= tip;
+        transformed.x += (seed - 0.5) * 8.0;
+        transformed.z += (other - 0.5) * 8.0;
+        transformed.y *= 0.86 + seed * 0.28;
+        float breeze = sin(grassTime * 0.75 + root.x * 0.10 + root.y * 0.08) * 1.15;
+        breeze += sin(grassTime * 1.12 + root.x * 0.19 - root.y * 0.12 + seed * 3.0) * 0.35;
+        transformed.x += (breeze + (seed - 0.5) * 2.0) * tip;
+        transformed.z += breeze * 0.42 * tip;
       #endif`);
   };
-  const grass=[], step=isTouch?.88:.72, detail=rng(778201);
-  for(let z=-91;z<=91;z+=step) for(let x=-91;x<=91;x+=step){
-    const gx=x+(detail()-.5)*step*.25,gz=z+(detail()-.5)*step*.25;
-    if (gx*gx+gz*gz < 2.4**2) continue;
-    // Keep the existing pond water clear of grass.
-    if (((gx-56)/8)**2+((gz-30)/4.4)**2 < 1) continue;
-    const height=.20+detail()*.15, width=step*(1.20+detail()*.15);
-    grass.push({x:gx,y:terrain(gx,gz)-.025,z:gz,sx:width,sy:height,sz:width,rot:detail()*Math.PI});
+  const greens=['#41682E','#659B43','#84B85C','#A5CC77','#C2D996'].map(c=>new THREE.Color(c));
+  const detail=rng(778201), dummy=new THREE.Object3D();
+  const divisions=8, span=182/divisions, perArea=isTouch?5000:10000;
+  // Independent random positions avoid visible rows or repeated grids.
+  // Separate bounds per area allow the renderer to skip grass behind the view.
+  for(let row=0;row<divisions;row++) for(let col=0;col<divisions;col++){
+    const centerX=-91+(col+.5)*span, centerZ=-91+(row+.5)*span;
+    const mesh=new THREE.InstancedMesh(geo,material,perArea);
+    mesh.position.set(centerX,0,centerZ);
+    for(let i=0;i<perArea;i++){
+      let gx,gz;
+      do {
+        gx=centerX+(detail()-.5)*span;gz=centerZ+(detail()-.5)*span;
+      } while (gx*gx+gz*gz < 2.7**2 || ((gx-56)/8.3)**2+((gz-30)/4.7)**2 < 1);
+      const height=.22+detail()*.24, width=.026+detail()*.030;
+      dummy.position.set(gx-centerX,terrain(gx,gz)-.025,gz-centerZ);
+      dummy.rotation.set((detail()-.5)*.18,detail()*Math.PI*2,(detail()-.5)*.22);
+      dummy.scale.set(width,height,width);
+      dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);
+      mesh.setColorAt(i,greens[Math.floor(detail()*greens.length)]);
+    }
+    mesh.instanceMatrix.needsUpdate=true;mesh.instanceColor.needsUpdate=true;
+    mesh.boundingSphere=new THREE.Sphere(new THREE.Vector3(0,0,0),span*.75+4);
+    grassAreas.push({mesh,centerX,centerZ,half:span/2,max:perArea,geo,denseGeo});
+    scene.add(mesh);
   }
-  placeInstanced(geo,material,grass.length,i=>grass[i]);
+}
+function updateGrassLOD(time){
+  if(time-grassLodAt<.7) return;
+  grassLodAt=time;
+  for(const area of grassAreas){
+    const dx=Math.max(0,Math.abs(camX-area.centerX)-area.half);
+    const dz=Math.max(0,Math.abs(camZ-area.centerZ)-area.half);
+    const distance=Math.hypot(dx,dz);
+    // Full density near the visitor; lower far detail limits GPU work.
+    const density=distance<15?1:distance<25?.65:distance<55?.16:.055;
+    area.mesh.geometry=distance<(isTouch?15:25)?area.denseGeo:area.geo;
+    area.mesh.count=Math.floor(area.max*density);
+  }
 }
 // A deep belt of full-height trees continues beyond the walkable map. Low and
 // middle foliage matters here: tall bare trunks alone leave a visible empty horizon.
@@ -669,6 +716,7 @@ function setupTouch(){
 }
 function animateDecor(t){
   grassWind.value=prefersReducedMotion.matches ? 0 : t;
+  updateGrassLOD(t);
   for (const group of activeMotifs.values()) animateMotif(group, prefersReducedMotion.matches ? 0 : t, camera.position);
   const attr=fleckGeo.attributes.position;for(let i=0;i<flecks.length;i++)attr.setY(i,flecks[i].y+Math.sin(t*.85+flecks[i].offset)*.38);attr.needsUpdate=true;
 }
